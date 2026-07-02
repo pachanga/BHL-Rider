@@ -40,20 +40,6 @@ class BhlSettingsConfigurable(private val project: Project) : BoundConfigurable(
                 .bindSelected(settings::forceRebuild)
                 .comment("Sets BHL_REBUILD=1 and BHL_SILENT=1 when launching the language server.")
         }
-        row("BHL project directory:") {
-            val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
-                .withTitle("Select BHL Project Directory")
-            val field = TextFieldWithBrowseButton().apply {
-                addBrowseFolderListener(project, descriptor)
-            }
-            cell(field)
-                .bindText(settings::projectDirectory)
-                .comment(
-                    "Directory containing bhl.proj. Overrides automatic discovery. " +
-                        "Leave empty to walk up from the opened file, then search the project.",
-                )
-                .align(AlignX.FILL)
-        }
     }
 
     override fun apply() {

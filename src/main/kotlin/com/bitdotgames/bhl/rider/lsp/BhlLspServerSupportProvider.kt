@@ -7,7 +7,12 @@ import com.bitdotgames.bhl.rider.BhlIcons
 import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.bitdotgames.bhl.rider.settings.BhlSettingsConfigurable
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.process.OSProcessHandler
+import com.intellij.execution.process.ProcessEvent
+import com.intellij.execution.process.ProcessListener
+import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServer
@@ -77,6 +82,25 @@ class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
             .logInfo("launching: ${commandLine.commandLineString} (cwd=$workDir)")
 
         return commandLine
+    }
+
+    /** Capture the server process's stderr and exit code into the "BHL LSP" console. */
+    override fun startServerProcess(): OSProcessHandler {
+        val handler = super.startServerProcess()
+        val console = BhlLspConsoleService.getInstance(project)
+        handler.addProcessListener(object : ProcessListener {
+            override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
+                // stdout is the JSON-RPC channel and must not be touched; only log stderr.
+                if (outputType == ProcessOutputTypes.STDERR) {
+                    event.text?.let { console.printServerStderr(it) }
+                }
+            }
+
+            override fun processTerminated(event: ProcessEvent) {
+                console.logInfo("server process exited with code ${event.exitCode}")
+            }
+        })
+        return handler
     }
 
     /** Route the BHL server's notifications into the "BHL LSP" console. */

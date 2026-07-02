@@ -63,15 +63,17 @@ The working directory for the server is resolved in this order:
 
 Configure the plugin under **Settings ▸ Languages & Frameworks ▸ BHL**:
 
-| Setting               | Default   | Description                                                                                     |
-|-----------------------|-----------|-------------------------------------------------------------------------------------------------|
-| Executable path       | *(empty)* | Path to the BHL executable/script. When empty, `bhl` is resolved on your `PATH`.               |
-| Log file              | *(empty)* | Optional path passed to the server as `--log-file=PATH`.                                       |
-| Force rebuild         | `true`    | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1` (for LSP development). |
-| BHL project directory | *(empty)* | Directory containing `bhl.proj`. Overrides automatic discovery (see above). Leave empty to auto-detect. |
+| Setting         | Default   | Description                                                                                     |
+|-----------------|-----------|-------------------------------------------------------------------------------------------------|
+| Executable path | *(empty)* | Path to the BHL executable/script. When empty, `bhl` is resolved on your `PATH`.               |
+| Log file        | *(empty)* | Optional path passed to the server as `--log-file=PATH`.                                       |
+| Force rebuild   | `true`    | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1` (for LSP development). |
 
-Executable path, log file, and force rebuild map 1:1 to the VSCode extension's
-`bhl.executablePath`, `bhl.logFile`, and `bhl.forceRebuild` settings.
+These map 1:1 to the VSCode extension's `bhl.executablePath`, `bhl.logFile`, and
+`bhl.forceRebuild` settings.
+
+The project-directory override used as discovery priority #1 is set via
+**Tools ▸ Select BHL Project File…** (it is not an editable settings field).
 
 ## How the server is launched
 
@@ -96,8 +98,9 @@ activity, and opens automatically on the first message:
 - **Client side:** file opened, `bhl.proj` discovery result (or why the server won't
   start), the launch command line + working directory, server state transitions
   (Initializing → Running → Shutdown…), and documents opened for the server (`didOpen`).
-- **Server side:** `window/logMessage` and `$/logTrace` output, `window/showMessage`
-  notifications, and diagnostics counts.
+- **Server side:** the process's **stderr** and exit code (where startup crashes show up),
+  plus `window/logMessage` / `$/logTrace` output, `window/showMessage` notifications, and
+  diagnostics counts.
 
 Per-request frames (completion, hover, etc.) are **not** shown — the platform exposes no
 public hook for raw JSON-RPC traffic. For that level of detail, set a *Log file* in the

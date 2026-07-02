@@ -43,6 +43,21 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
 
     fun logTrace(message: String) = append(ConsoleViewContentType.LOG_VERBOSE_OUTPUT, "[trace] $message")
 
+    /** Prints a raw chunk of the server's stderr as-is (it already carries its own newlines). */
+    fun printServerStderr(text: String) = printRaw(ConsoleViewContentType.LOG_ERROR_OUTPUT, text)
+
+    private fun printRaw(contentType: ConsoleViewContentType, text: String) {
+        LOG.info(text.trimEnd())
+        val view = console
+        if (view != null) {
+            view.print(text, contentType)
+        } else {
+            pending.add(contentType to text)
+            while (pending.size > MAX_PENDING) pending.poll()
+        }
+        ensureVisibleOnce()
+    }
+
     private fun append(contentType: ConsoleViewContentType, rawLine: String) {
         // Mirror into idea.log so the trail survives even if the console UI isn't visible.
         LOG.info(rawLine)
