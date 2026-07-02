@@ -39,8 +39,10 @@ Rider via **Settings ▸ Plugins ▸ ⚙ ▸ Install Plugin from Disk…**.
 2. Open any `.bhl` file. The plugin locates `bhl.proj`, then starts the BHL language
    server. Its status is shown in the LSP widget in the status bar.
 3. If the project contains **more than one** `bhl.proj`, you are prompted to pick which one
-   to use; the choice is remembered. You can change it later via
-   **Tools ▸ Select BHL Project File…**, which restarts the server against the new project.
+   to use; the choice is remembered for that session. To pin a project explicitly, use
+   **Tools ▸ Select BHL Project File…** — it stores the chosen file's directory as the
+   *BHL project directory* override (top priority below) and restarts the server against it.
+   Clear that setting to return to automatic discovery.
 
 ### How the `bhl.proj` is discovered
 

@@ -2,6 +2,7 @@ package com.bitdotgames.bhl.rider.actions
 
 import com.bitdotgames.bhl.rider.lsp.BhlLspServerSupportProvider
 import com.bitdotgames.bhl.rider.lsp.BhlProjectFileResolver
+import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -21,7 +22,10 @@ class SelectBhlProjectFileAction : AnAction() {
         if (files.isEmpty()) {
             return
         }
-        BhlProjectFileResolver.promptForChoice(project, files) {
+        BhlProjectFileResolver.promptForChoice(files) { chosen ->
+            // Persist the pick as the top-priority "BHL project directory" override so it
+            // reliably wins over walk-up and project-wide discovery.
+            BhlSettings.getInstance(project).projectDirectory = chosen.parent.path
             restartLspServer(project)
         }
     }

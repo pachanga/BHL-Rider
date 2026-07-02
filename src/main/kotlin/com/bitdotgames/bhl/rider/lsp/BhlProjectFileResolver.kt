@@ -70,7 +70,10 @@ object BhlProjectFileResolver {
                         onResolved(Paths.get(remembered.parent.path))
                     } else {
                         ApplicationManager.getApplication().invokeLater {
-                            promptForChoice(project, files, onResolved)
+                            promptForChoice(files) { chosen ->
+                                settings.selectedProjectFile = chosen.path
+                                onResolved(Paths.get(chosen.parent.path))
+                            }
                         }
                     }
                 }
@@ -109,17 +112,15 @@ object BhlProjectFileResolver {
         return null
     }
 
-    fun promptForChoice(project: Project, files: List<VirtualFile>, onResolved: (Path) -> Unit) {
+    /** Shows a popup listing [files] and invokes [onChosen] with the picked `bhl.proj`. */
+    fun promptForChoice(files: List<VirtualFile>, onChosen: (VirtualFile) -> Unit) {
         JBPopupFactory.getInstance()
             .createPopupChooserBuilder(files)
             .setTitle("Select BHL Project File")
             .setRenderer { _, value, _, _, _ ->
                 javax.swing.JLabel(value.path)
             }
-            .setItemChosenCallback { chosen ->
-                BhlSettings.getInstance(project).selectedProjectFile = chosen.path
-                onResolved(Paths.get(chosen.parent.path))
-            }
+            .setItemChosenCallback { chosen -> onChosen(chosen) }
             .createPopup()
             .showInFocusCenter()
     }
