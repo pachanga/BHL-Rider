@@ -40,10 +40,12 @@ object BhlProjectFileResolver {
      * `bhl.proj` or the user dismisses the disambiguation prompt.
      */
     fun resolveWorkingDirectory(project: Project, contextFile: VirtualFile?, onResolved: (Path) -> Unit) {
+        val console = BhlLspConsoleService.getInstance(project)
         ApplicationManager.getApplication().executeOnPooledThread {
             // 1. Explicit override.
             val configured = configuredProjectDirectory(project)
             if (configured != null) {
+                console.logInfo("bhl.proj: using configured project directory $configured")
                 onResolved(configured)
                 return@executeOnPooledThread
             }
@@ -51,6 +53,7 @@ object BhlProjectFileResolver {
             // 2. Walk up from the opened file to the nearest bhl.proj.
             val walkedUp = contextFile?.let { findNearestProjectDir(it) }
             if (walkedUp != null) {
+                console.logInfo("bhl.proj: found via walk-up in ${walkedUp.path}")
                 onResolved(Paths.get(walkedUp.path))
                 return@executeOnPooledThread
             }
@@ -58,17 +61,26 @@ object BhlProjectFileResolver {
             // 3. Project-wide index search.
             val files = findProjectFiles(project)
             when {
-                files.isEmpty() ->
-                    LOG.info("No $BHL_PROJECT_FILE_NAME found for project ${project.name}; BHL LSP server will not start.")
+                files.isEmpty() -> {
+                    val msg = "no $BHL_PROJECT_FILE_NAME found — server not started. " +
+                        "Open a .bhl file under a $BHL_PROJECT_FILE_NAME, or set 'BHL project directory' in Settings."
+                    LOG.info("$msg (project ${project.name})")
+                    console.logInfo("bhl.proj: $msg")
+                }
 
-                files.size == 1 -> onResolved(Paths.get(files[0].parent.path))
+                files.size == 1 -> {
+                    console.logInfo("bhl.proj: found ${files[0].path}")
+                    onResolved(Paths.get(files[0].parent.path))
+                }
 
                 else -> {
                     val settings = BhlSettings.getInstance(project)
                     val remembered = files.firstOrNull { it.path == settings.selectedProjectFile }
                     if (remembered != null) {
+                        console.logInfo("bhl.proj: using remembered ${remembered.path}")
                         onResolved(Paths.get(remembered.parent.path))
                     } else {
+                        console.logInfo("bhl.proj: ${files.size} candidates — prompting for a choice")
                         ApplicationManager.getApplication().invokeLater {
                             promptForChoice(project, files) { chosen ->
                                 settings.selectedProjectFile = chosen.path

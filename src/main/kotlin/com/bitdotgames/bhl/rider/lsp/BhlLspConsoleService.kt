@@ -2,6 +2,7 @@ package com.bitdotgames.bhl.rider.lsp
 
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.execution.ui.ConsoleViewContentType
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * flushed once the tool window is created.
  */
 @Service(Service.Level.PROJECT)
-class BhlLspConsoleService(private val project: Project) {
+class BhlLspConsoleService(private val project: Project) : Disposable {
     @Volatile
     private var console: ConsoleView? = null
     private val pending = ConcurrentLinkedQueue<Pair<ConsoleViewContentType, String>>()
@@ -66,6 +67,10 @@ class BhlLspConsoleService(private val project: Project) {
         MessageType.Warning -> ConsoleViewContentType.LOG_WARNING_OUTPUT
         MessageType.Info -> ConsoleViewContentType.LOG_INFO_OUTPUT
         else -> ConsoleViewContentType.LOG_VERBOSE_OUTPUT
+    }
+
+    override fun dispose() {
+        // The ConsoleView is disposed together with the tool window content.
     }
 
     companion object {

@@ -31,6 +31,8 @@
                     secondary="true"
                     canCloseContents="false"
                     factoryClass="com.bitdotgames.bhl.rider.lsp.BhlLspConsoleToolWindowFactory"/>
+
+        <postStartupActivity implementation="com.bitdotgames.bhl.rider.lsp.BhlLspStartupActivity"/>
     </extensions>
 
     <actions>

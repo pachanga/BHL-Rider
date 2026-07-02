@@ -27,7 +27,10 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         if (file.fileType != BhlFileType) return
+        val console = BhlLspConsoleService.getInstance(project)
+        console.logInfo("opened ${file.name}; resolving $BHL_PROJECT_FILE_NAME…")
         BhlProjectFileResolver.resolveWorkingDirectory(project, file) { workDir ->
+            console.logInfo("ensuring BHL server is started (workDir=$workDir)")
             serverStarter.ensureServerStarted(BhlLspServerDescriptor(project, workDir))
         }
     }

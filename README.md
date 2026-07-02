@@ -90,14 +90,20 @@ On opening a `.bhl` file the plugin builds this command line:
 
 ## Logs
 
-The **BHL LSP** tool window (bottom) shows a console with output from the BHL language
-server: the launch command line, `window/logMessage` and `$/logTrace` output,
-`window/showMessage` notifications, diagnostics counts, and server lifecycle
-(initialized / stopped / crashed). It opens automatically on the first message.
+The **BHL LSP** tool window (bottom) shows a console with both client- and server-side
+activity, and opens automatically on the first message:
 
-For lower-level detail, the IDE's own `idea.log` (**Help ▸ Show Log in Finder**) also
-records plugin activity; raise verbosity for LSP internals via **Help ▸ Diagnostic Tools
-▸ Debug Log Settings** with category `#com.intellij.platform.lsp`.
+- **Client side:** file opened, `bhl.proj` discovery result (or why the server won't
+  start), the launch command line + working directory, server state transitions
+  (Initializing → Running → Shutdown…), and documents opened for the server (`didOpen`).
+- **Server side:** `window/logMessage` and `$/logTrace` output, `window/showMessage`
+  notifications, and diagnostics counts.
+
+Per-request frames (completion, hover, etc.) are **not** shown — the platform exposes no
+public hook for raw JSON-RPC traffic. For that level of detail, set a *Log file* in the
+settings (passed to the server as `--log-file`), or raise IDE verbosity via **Help ▸
+Diagnostic Tools ▸ Debug Log Settings** with category `#com.intellij.platform.lsp`
+(written to `idea.log`, viewable via **Help ▸ Show Log in Finder**).
 
 ## Development
 
