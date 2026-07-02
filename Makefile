@@ -8,6 +8,7 @@ build:
 	$(GRADLEW) compileKotlin
 
 package: build
+	rm -f build/distributions/*.zip
 	$(GRADLEW) buildPlugin
 	@echo "Plugin package built at:"
 	@ls -1 build/distributions/*.zip

@@ -6,6 +6,7 @@ import com.bitdotgames.bhl.rider.BhlFileType
 import com.bitdotgames.bhl.rider.BhlIcons
 import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.bitdotgames.bhl.rider.settings.BhlSettingsConfigurable
+import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessEvent
@@ -127,8 +128,17 @@ class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
 
     /** Capture the server process's stderr and exit code into the "BHL LSP" console. */
     override fun startServerProcess(): OSProcessHandler {
-        val handler = super.startServerProcess()
         val console = BhlLspConsoleService.getInstance(project)
+        val handler = try {
+            super.startServerProcess()
+        } catch (e: ExecutionException) {
+            // Most commonly the executable isn't found (e.g. bare "bhl" not on the IDE's PATH).
+            console.logInfo(
+                "failed to launch server: ${e.message}. " +
+                    "Set an absolute 'Executable path' in Settings > Languages & Frameworks > BHL.",
+            )
+            throw e
+        }
         handler.addProcessListener(object : ProcessListener {
             override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
                 // stdout is the JSON-RPC channel and must not be touched; only log stderr.
