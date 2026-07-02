@@ -25,6 +25,12 @@
 
         <platform.lsp.serverSupportProvider
                 implementation="com.bitdotgames.bhl.rider.lsp.BhlLspServerSupportProvider"/>
+
+        <toolWindow id="BHL LSP"
+                    anchor="bottom"
+                    secondary="true"
+                    canCloseContents="false"
+                    factoryClass="com.bitdotgames.bhl.rider.lsp.BhlLspConsoleToolWindowFactory"/>
     </extensions>
 
     <actions>

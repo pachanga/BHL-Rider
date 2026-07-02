@@ -88,6 +88,17 @@ On opening a `.bhl` file the plugin builds this command line:
 - On Windows, a `.bat` executable is run through `cmd.exe /c` (Java cannot exec `.bat`
   files directly), mirroring the VSCode client's `shell: true` handling.
 
+## Logs
+
+The **BHL LSP** tool window (bottom) shows a console with output from the BHL language
+server: the launch command line, `window/logMessage` and `$/logTrace` output,
+`window/showMessage` notifications, diagnostics counts, and server lifecycle
+(initialized / stopped / crashed). It opens automatically on the first message.
+
+For lower-level detail, the IDE's own `idea.log` (**Help ▸ Show Log in Finder**) also
+records plugin activity; raise verbosity for LSP internals via **Help ▸ Diagnostic Tools
+▸ Debug Log Settings** with category `#com.intellij.platform.lsp`.
+
 ## Development
 
 ```bash
