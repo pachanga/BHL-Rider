@@ -101,12 +101,16 @@ activity, and opens automatically on the first message:
 - **Server side:** the process's **stderr** and exit code (where startup crashes show up),
   plus `window/logMessage` / `$/logTrace` output, `window/showMessage` notifications, and
   diagnostics counts.
+- **Rider's platform LSP logs** (`com.intellij.platform.lsp.*`) are mirrored in too, prefixed
+  `[lsp]` — server start/stop, init timeouts, the process kill, etc. INFO/WARN/errors show by
+  default; enable DEBUG for `com.intellij.platform.lsp` in **Help ▸ Diagnostic Tools ▸ Debug
+  Log Settings** to see the finer records here as well. (This reflects all LSP servers, which
+  in Rider is normally just BHL.)
 
 Per-request frames (completion, hover, etc.) are **not** shown — the platform exposes no
 public hook for raw JSON-RPC traffic. For that level of detail, set a *Log file* in the
-settings (passed to the server as `--log-file`), or raise IDE verbosity via **Help ▸
-Diagnostic Tools ▸ Debug Log Settings** with category `#com.intellij.platform.lsp`
-(written to `idea.log`, viewable via **Help ▸ Show Log in Finder**).
+settings (passed to the server as `--log-file`). Everything in the console is also mirrored
+to `idea.log` (**Help ▸ Show Log in Finder**).
 
 ## Development
 

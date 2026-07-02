@@ -12,6 +12,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import org.eclipse.lsp4j.MessageType
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.logging.Level
 
 private val LOG = logger<BhlLspConsoleService>()
 
@@ -43,6 +44,16 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
 
     fun logTrace(message: String) = append(ConsoleViewContentType.LOG_VERBOSE_OUTPUT, "[trace] $message")
 
+    /** Mirrors a platform LSP log record (already in idea.log) — don't re-mirror it there. */
+    fun logPlatform(level: Level, message: String) {
+        val contentType = when {
+            level.intValue() >= Level.SEVERE.intValue() -> ConsoleViewContentType.LOG_ERROR_OUTPUT
+            level.intValue() >= Level.WARNING.intValue() -> ConsoleViewContentType.LOG_WARNING_OUTPUT
+            else -> ConsoleViewContentType.LOG_VERBOSE_OUTPUT
+        }
+        append(contentType, "[lsp] $message", mirrorToIdeaLog = false)
+    }
+
     /** Prints a raw chunk of the server's stderr as-is (it already carries its own newlines). */
     fun printServerStderr(text: String) = printRaw(ConsoleViewContentType.LOG_ERROR_OUTPUT, text)
 
@@ -58,9 +69,9 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
         ensureVisibleOnce()
     }
 
-    private fun append(contentType: ConsoleViewContentType, rawLine: String) {
+    private fun append(contentType: ConsoleViewContentType, rawLine: String, mirrorToIdeaLog: Boolean = true) {
         // Mirror into idea.log so the trail survives even if the console UI isn't visible.
-        LOG.info(rawLine)
+        if (mirrorToIdeaLog) LOG.info(rawLine)
         val line = if (rawLine.endsWith("\n")) rawLine else "$rawLine\n"
         val view = console
         if (view != null) {

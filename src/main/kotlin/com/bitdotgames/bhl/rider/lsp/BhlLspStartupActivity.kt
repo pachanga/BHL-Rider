@@ -11,5 +11,7 @@ class BhlLspStartupActivity : ProjectActivity {
         console.logInfo("BHL plugin initialized; open a .bhl file to start the language server")
         LspServerManager.getInstance(project)
             .addLspServerManagerListener(BhlLspManagerListener(project), console, true)
+        // Mirror Rider's own platform LSP logs into the BHL LSP console.
+        BhlPlatformLspLogBridge.install(project, console)
     }
 }
