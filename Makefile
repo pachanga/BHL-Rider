@@ -9,6 +9,8 @@ build:
 
 package: build
 	$(GRADLEW) buildPlugin
+	@echo "Plugin package built at:"
+	@ls -1 build/distributions/*.zip
 
 # Rider has no CLI to install a plugin zip; install it from disk:
 #   Settings > Plugins > (gear) > Install Plugin from Disk...
