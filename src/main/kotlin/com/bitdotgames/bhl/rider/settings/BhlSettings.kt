@@ -12,7 +12,9 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 class BhlSettingsState {
     var executablePath: String = ""
     var logFile: String = ""
-    var forceRebuild: Boolean = true
+    // Off by default: BHL_REBUILD makes the launcher run dotnet clean+publish before the
+    // LSP starts, which can exceed the IDE's init timeout. Enable only for LSP development.
+    var forceRebuild: Boolean = false
     var projectDirectory: String = ""
     var selectedProjectFile: String = ""
 }

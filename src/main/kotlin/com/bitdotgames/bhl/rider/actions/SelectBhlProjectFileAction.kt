@@ -12,6 +12,7 @@ import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerState
 import java.nio.file.Paths
 
 class SelectBhlProjectFileAction : AnAction() {
@@ -51,13 +52,17 @@ class SelectBhlProjectFileAction : AnAction() {
 
         val manager = LspServerManager.getInstance(project)
         val providerClass = BhlLspServerSupportProvider::class.java
-        if (manager.getServersForProvider(providerClass).isEmpty()) {
-            // No server yet: start one for the chosen directory. (Do NOT stopServers first —
-            // a stop scheduled right before the start races and shuts the new server down.)
-            manager.ensureServerStarted(providerClass, BhlLspServerDescriptor(project, Paths.get(directoryPath)))
-        } else {
+        val hasLiveServer = manager.getServersForProvider(providerClass).any {
+            it.state == LspServerState.Initializing || it.state == LspServerState.Running
+        }
+        if (hasLiveServer) {
             // A server is already running: restart it so it picks up the new directory.
             manager.stopAndRestartIfNeeded(providerClass)
+        } else {
+            // No live server (including a stale, exited one): start one for the chosen
+            // directory. Do NOT stopServers first — a stop scheduled right before the start
+            // races and shuts the new server down.
+            manager.ensureServerStarted(providerClass, BhlLspServerDescriptor(project, Paths.get(directoryPath)))
         }
     }
 }

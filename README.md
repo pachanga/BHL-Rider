@@ -67,7 +67,7 @@ Configure the plugin under **Settings ▸ Languages & Frameworks ▸ BHL**:
 |-----------------|-----------|-------------------------------------------------------------------------------------------------|
 | Executable path | *(empty)* | Path to the BHL executable/script. When empty, `bhl` is resolved on your `PATH`.               |
 | Log file        | *(empty)* | Optional path passed to the server as `--log-file=PATH`.                                       |
-| Force rebuild   | `true`    | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1` (for LSP development). |
+| Force rebuild   | `false`   | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1`, which makes the launcher rebuild before starting (for LSP development). Off by default — the rebuild can exceed the IDE's init timeout. |
 
 These map 1:1 to the VSCode extension's `bhl.executablePath`, `bhl.logFile`, and
 `bhl.forceRebuild` settings.
