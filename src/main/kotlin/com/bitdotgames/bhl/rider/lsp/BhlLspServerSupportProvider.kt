@@ -13,7 +13,10 @@ import com.intellij.execution.process.ProcessListener
 import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import org.eclipse.lsp4j.InitializeParams
+import org.eclipse.lsp4j.WorkspaceFolder
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerListener
@@ -50,6 +53,23 @@ class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
 
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+
+    /**
+     * Point the server at the selected bhl.proj directory. The BHL server reads its project
+     * from `workspaceFolders` (falling back to rootUri); the IDE otherwise fills these with
+     * the solution's own roots, which are not the BHL project directory.
+     */
+    @Suppress("DEPRECATION") // rootUri is deprecated in LSP; set as a fallback for older servers
+    override fun createInitializeParams(): InitializeParams {
+        val params = super.createInitializeParams()
+        val vFile = LocalFileSystem.getInstance().findFileByNioFile(workDir)
+        val uri = if (vFile != null) getFileUri(vFile) else workDir.toUri().toString()
+        val name = workDir.fileName?.toString() ?: "bhl"
+        params.setRootUri(uri)
+        params.workspaceFolders = mutableListOf(WorkspaceFolder(uri, name))
+        BhlLspConsoleService.getInstance(project).logInfo("workspace folder: $uri")
+        return params
+    }
 
     override fun createCommandLine(): GeneralCommandLine {
         val settings = BhlSettings.getInstance(project)
