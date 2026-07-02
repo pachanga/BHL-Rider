@@ -42,18 +42,32 @@ Rider via **Settings ▸ Plugins ▸ ⚙ ▸ Install Plugin from Disk…**.
    to use; the choice is remembered. You can change it later via
    **Tools ▸ Select BHL Project File…**, which restarts the server against the new project.
 
+### How the `bhl.proj` is discovered
+
+The working directory for the server is resolved in this order:
+
+1. **BHL project directory** setting — if set, it always wins (useful when the BHL
+   scripts live outside the open solution, e.g. a C# solution with BHL scripts in a
+   separate folder).
+2. **Walk up** from the opened `.bhl` file to the nearest ancestor directory containing a
+   `bhl.proj`. This works even if the file is not part of the open project's indexed
+   content.
+3. **Project-wide search** of the open project's indexed files for `bhl.proj` (0 → server
+   doesn't start; 1 → used; many → remembered choice or a picker).
+
 ## Settings
 
 Configure the plugin under **Settings ▸ Languages & Frameworks ▸ BHL**:
 
-| Setting           | Default | Description                                                                                     |
-|-------------------|---------|-------------------------------------------------------------------------------------------------|
-| Executable path   | *(empty)* | Path to the BHL executable/script. When empty, `bhl` is resolved on your `PATH`.               |
-| Log file          | *(empty)* | Optional path passed to the server as `--log-file=PATH`.                                       |
-| Force rebuild     | `true`  | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1` (for LSP development). |
+| Setting               | Default   | Description                                                                                     |
+|-----------------------|-----------|-------------------------------------------------------------------------------------------------|
+| Executable path       | *(empty)* | Path to the BHL executable/script. When empty, `bhl` is resolved on your `PATH`.               |
+| Log file              | *(empty)* | Optional path passed to the server as `--log-file=PATH`.                                       |
+| Force rebuild         | `true`    | When enabled, launches the server with `BHL_REBUILD=1` and `BHL_SILENT=1` (for LSP development). |
+| BHL project directory | *(empty)* | Directory containing `bhl.proj`. Overrides automatic discovery (see above). Leave empty to auto-detect. |
 
-These map 1:1 to the VSCode extension's `bhl.executablePath`, `bhl.logFile`, and
-`bhl.forceRebuild` settings.
+Executable path, log file, and force rebuild map 1:1 to the VSCode extension's
+`bhl.executablePath`, `bhl.logFile`, and `bhl.forceRebuild` settings.
 
 ## How the server is launched
 

@@ -23,7 +23,7 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         if (file.fileType != BhlFileType) return
-        BhlProjectFileResolver.resolveWorkingDirectory(project) { workDir ->
+        BhlProjectFileResolver.resolveWorkingDirectory(project, file) { workDir ->
             serverStarter.ensureServerStarted(BhlLspServerDescriptor(project, workDir))
         }
     }

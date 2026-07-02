@@ -13,6 +13,7 @@ class BhlSettingsState {
     var executablePath: String = ""
     var logFile: String = ""
     var forceRebuild: Boolean = true
+    var projectDirectory: String = ""
     var selectedProjectFile: String = ""
 }
 
@@ -43,6 +44,12 @@ class BhlSettings : PersistentStateComponent<BhlSettingsState> {
         get() = state.forceRebuild
         set(value) {
             state.forceRebuild = value
+        }
+
+    var projectDirectory: String
+        get() = state.projectDirectory
+        set(value) {
+            state.projectDirectory = value
         }
 
     var selectedProjectFile: String
