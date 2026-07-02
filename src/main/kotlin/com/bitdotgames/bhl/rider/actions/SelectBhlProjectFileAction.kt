@@ -50,13 +50,14 @@ class SelectBhlProjectFileAction : AnAction() {
             .logInfo("selected BHL project directory: $directoryPath — starting server")
 
         val manager = LspServerManager.getInstance(project)
-        // Stop any existing server, then start one directly for the chosen directory.
-        // Using ensureServerStarted(descriptor) starts the server even when no .bhl file
-        // is currently open (unlike startServersIfNeeded, which only acts on open files).
-        manager.stopServers(BhlLspServerSupportProvider::class.java)
-        manager.ensureServerStarted(
-            BhlLspServerSupportProvider::class.java,
-            BhlLspServerDescriptor(project, Paths.get(directoryPath)),
-        )
+        val providerClass = BhlLspServerSupportProvider::class.java
+        if (manager.getServersForProvider(providerClass).isEmpty()) {
+            // No server yet: start one for the chosen directory. (Do NOT stopServers first —
+            // a stop scheduled right before the start races and shuts the new server down.)
+            manager.ensureServerStarted(providerClass, BhlLspServerDescriptor(project, Paths.get(directoryPath)))
+        } else {
+            // A server is already running: restart it so it picks up the new directory.
+            manager.stopAndRestartIfNeeded(providerClass)
+        }
     }
 }
