@@ -6,11 +6,14 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
 import org.eclipse.lsp4j.MessageType
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
+
+private val LOG = logger<BhlLspConsoleService>()
 
 /**
  * Owns the console shown in the "BHL LSP" tool window and receives log lines from the BHL
@@ -41,6 +44,8 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
     fun logTrace(message: String) = append(ConsoleViewContentType.LOG_VERBOSE_OUTPUT, "[trace] $message")
 
     private fun append(contentType: ConsoleViewContentType, rawLine: String) {
+        // Mirror into idea.log so the trail survives even if the console UI isn't visible.
+        LOG.info(rawLine)
         val line = if (rawLine.endsWith("\n")) rawLine else "$rawLine\n"
         val view = console
         if (view != null) {

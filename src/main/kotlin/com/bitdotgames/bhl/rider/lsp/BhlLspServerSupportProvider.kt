@@ -26,9 +26,10 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
-        if (file.fileType != BhlFileType) return
+        val isBhl = file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+        if (!isBhl) return
         val console = BhlLspConsoleService.getInstance(project)
-        console.logInfo("opened ${file.name}; resolving $BHL_PROJECT_FILE_NAME…")
+        console.logInfo("opened ${file.name} (fileType=${file.fileType.name}); resolving $BHL_PROJECT_FILE_NAME…")
         BhlProjectFileResolver.resolveWorkingDirectory(project, file) { workDir ->
             console.logInfo("ensuring BHL server is started (workDir=$workDir)")
             serverStarter.ensureServerStarted(BhlLspServerDescriptor(project, workDir))
@@ -42,7 +43,8 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
 class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
     ProjectWideLspServerDescriptor(project, "BHL Language Server") {
 
-    override fun isSupportedFile(file: VirtualFile): Boolean = file.fileType == BhlFileType
+    override fun isSupportedFile(file: VirtualFile): Boolean =
+        file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
 
     override fun createCommandLine(): GeneralCommandLine {
         val settings = BhlSettings.getInstance(project)

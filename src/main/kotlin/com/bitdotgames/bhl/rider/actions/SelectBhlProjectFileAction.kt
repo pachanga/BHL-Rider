@@ -1,5 +1,7 @@
 package com.bitdotgames.bhl.rider.actions
 
+import com.bitdotgames.bhl.rider.lsp.BhlLspConsoleService
+import com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptor
 import com.bitdotgames.bhl.rider.lsp.BhlLspServerSupportProvider
 import com.bitdotgames.bhl.rider.lsp.BhlProjectFileResolver
 import com.bitdotgames.bhl.rider.settings.BhlSettings
@@ -9,6 +11,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.platform.lsp.api.LspServerManager
+import java.nio.file.Paths
 
 class SelectBhlProjectFileAction : AnAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
@@ -39,14 +43,20 @@ class SelectBhlProjectFileAction : AnAction() {
         applyChoice(project, dir.path)
     }
 
-    /** Persist the pick as the top-priority "BHL project directory" override and restart. */
+    /** Persist the pick as the top-priority "BHL project directory" override and (re)start. */
     private fun applyChoice(project: Project, directoryPath: String) {
         BhlSettings.getInstance(project).projectDirectory = directoryPath
-        restartLspServer(project)
-    }
+        BhlLspConsoleService.getInstance(project)
+            .logInfo("selected BHL project directory: $directoryPath — starting server")
 
-    private fun restartLspServer(project: Project) {
-        com.intellij.platform.lsp.api.LspServerManager.getInstance(project)
-            .stopAndRestartIfNeeded(BhlLspServerSupportProvider::class.java)
+        val manager = LspServerManager.getInstance(project)
+        // Stop any existing server, then start one directly for the chosen directory.
+        // Using ensureServerStarted(descriptor) starts the server even when no .bhl file
+        // is currently open (unlike startServersIfNeeded, which only acts on open files).
+        manager.stopServers(BhlLspServerSupportProvider::class.java)
+        manager.ensureServerStarted(
+            BhlLspServerSupportProvider::class.java,
+            BhlLspServerDescriptor(project, Paths.get(directoryPath)),
+        )
     }
 }

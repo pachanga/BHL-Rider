@@ -8,6 +8,7 @@ import com.intellij.platform.lsp.api.LspServerManager
 class BhlLspStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         val console = BhlLspConsoleService.getInstance(project)
+        console.logInfo("BHL plugin initialized; open a .bhl file to start the language server")
         LspServerManager.getInstance(project)
             .addLspServerManagerListener(BhlLspManagerListener(project), console, true)
     }
