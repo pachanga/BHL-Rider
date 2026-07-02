@@ -29,36 +29,37 @@ object BhlProjectFileResolver {
         }
 
     /**
-     * Resolves the working directory to launch the LSP server in, in priority order:
-     *  1. the explicit "BHL project directory" setting, if configured and valid;
-     *  2. the nearest `bhl.proj` found by walking up from [contextFile] (works even for
-     *     files outside the project's indexed scope);
-     *  3. a project-wide index search for `bhl.proj` (0 → don't start, 1 → use it,
-     *     many → remembered choice or a disambiguation prompt).
+     * Fast, **synchronous** resolution used from `fileOpened`: the explicit "BHL project
+     * directory" override, then walk-up from [contextFile] to the nearest `bhl.proj`.
      *
-     * Invokes [onResolved] once determined; does nothing if none of the strategies find a
-     * `bhl.proj` or the user dismisses the disambiguation prompt.
+     * Must be synchronous: the platform reads the LspServerStarter's descriptor right after
+     * `fileOpened` returns, so `serverStarter.ensureServerStarted(...)` has to be called
+     * within that call — not from a background thread.
+     *
+     * Returns `null` if neither strategy resolves a directory (caller may then fall back to
+     * [resolveViaProjectIndex]).
      */
-    fun resolveWorkingDirectory(project: Project, contextFile: VirtualFile?, onResolved: (Path) -> Unit) {
+    fun resolveSync(project: Project, contextFile: VirtualFile?): Path? {
+        val console = BhlLspConsoleService.getInstance(project)
+        configuredProjectDirectory(project)?.let {
+            console.logInfo("bhl.proj: using configured project directory $it")
+            return it
+        }
+        contextFile?.let { findNearestProjectDir(it) }?.let {
+            console.logInfo("bhl.proj: found via walk-up in ${it.path}")
+            return Paths.get(it.path)
+        }
+        return null
+    }
+
+    /**
+     * Fallback resolution via a project-wide index search for `bhl.proj` (0 → don't start,
+     * 1 → use it, many → remembered choice or a picker). Runs asynchronously, so callers
+     * must start the server via [LspServerManager] rather than the fileOpened starter.
+     */
+    fun resolveViaProjectIndex(project: Project, onResolved: (Path) -> Unit) {
         val console = BhlLspConsoleService.getInstance(project)
         ApplicationManager.getApplication().executeOnPooledThread {
-            // 1. Explicit override.
-            val configured = configuredProjectDirectory(project)
-            if (configured != null) {
-                console.logInfo("bhl.proj: using configured project directory $configured")
-                onResolved(configured)
-                return@executeOnPooledThread
-            }
-
-            // 2. Walk up from the opened file to the nearest bhl.proj.
-            val walkedUp = contextFile?.let { findNearestProjectDir(it) }
-            if (walkedUp != null) {
-                console.logInfo("bhl.proj: found via walk-up in ${walkedUp.path}")
-                onResolved(Paths.get(walkedUp.path))
-                return@executeOnPooledThread
-            }
-
-            // 3. Project-wide index search.
             val files = findProjectFiles(project)
             when {
                 files.isEmpty() -> {

@@ -20,6 +20,7 @@ import org.eclipse.lsp4j.WorkspaceFolder
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerListener
+import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
@@ -38,9 +39,22 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         if (!isBhl) return
         val console = BhlLspConsoleService.getInstance(project)
         console.logInfo("opened ${file.name} (fileType=${file.fileType.name}); resolving $BHL_PROJECT_FILE_NAME…")
-        BhlProjectFileResolver.resolveWorkingDirectory(project, file) { workDir ->
+
+        // Fast path: resolve synchronously and start via the fileOpened starter, so the
+        // platform can link this file to the server (it reads the starter's descriptor
+        // right after fileOpened returns — an async callback would be too late).
+        val workDir = BhlProjectFileResolver.resolveSync(project, file)
+        if (workDir != null) {
             console.logInfo("ensuring BHL server is started (workDir=$workDir)")
             serverStarter.ensureServerStarted(BhlLspServerDescriptor(project, workDir))
+            return
+        }
+
+        // Fallback: project-wide index search runs async, so start via the manager.
+        BhlProjectFileResolver.resolveViaProjectIndex(project) { resolved ->
+            console.logInfo("ensuring BHL server is started (workDir=$resolved)")
+            LspServerManager.getInstance(project)
+                .ensureServerStarted(BhlLspServerSupportProvider::class.java, BhlLspServerDescriptor(project, resolved))
         }
     }
 
@@ -53,6 +67,13 @@ class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
 
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+
+    // Two descriptors for the same working directory are the same server, so starting from
+    // both fileOpened and the action reuses one server instead of spawning duplicates.
+    override fun equals(other: Any?): Boolean =
+        other is BhlLspServerDescriptor && other.project == project && other.workDir == workDir
+
+    override fun hashCode(): Int = workDir.hashCode()
 
     /**
      * Point the server at the selected bhl.proj directory. The BHL server reads its project
