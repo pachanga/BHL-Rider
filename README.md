@@ -40,9 +40,11 @@ Rider via **Settings ▸ Plugins ▸ ⚙ ▸ Install Plugin from Disk…**.
    server. Its status is shown in the LSP widget in the status bar.
 3. If the project contains **more than one** `bhl.proj`, you are prompted to pick which one
    to use; the choice is remembered for that session. To pin a project explicitly, use
-   **Tools ▸ Select BHL Project File…** — it stores the chosen file's directory as the
-   *BHL project directory* override (top priority below) and restarts the server against it.
-   Clear that setting to return to automatic discovery.
+   **Tools ▸ Select BHL Project File…** — it lists the `bhl.proj` files it discovered, or,
+   if none are indexed (e.g. a C# solution with BHL scripts in a separate folder), opens a
+   file browser so you can point at a `bhl.proj` (or its directory). Either way it stores
+   the chosen directory as the *BHL project directory* override (top priority below) and
+   restarts the server against it. Clear that setting to return to automatic discovery.
 
 ### How the `bhl.proj` is discovered
 

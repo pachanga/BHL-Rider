@@ -6,8 +6,9 @@ import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.project.Project
-import com.intellij.platform.lsp.api.LspServerManager
 
 class SelectBhlProjectFileAction : AnAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
@@ -18,20 +19,34 @@ class SelectBhlProjectFileAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val files = BhlProjectFileResolver.findProjectFiles(project)
-        if (files.isEmpty()) {
+
+        // If the IDE already indexed bhl.proj files, offer a quick pick among them.
+        val discovered = BhlProjectFileResolver.findProjectFiles(project)
+        if (discovered.isNotEmpty()) {
+            BhlProjectFileResolver.promptForChoice(project, discovered) { chosen ->
+                applyChoice(project, chosen.parent.path)
+            }
             return
         }
-        BhlProjectFileResolver.promptForChoice(files) { chosen ->
-            // Persist the pick as the top-priority "BHL project directory" override so it
-            // reliably wins over walk-up and project-wide discovery.
-            BhlSettings.getInstance(project).projectDirectory = chosen.parent.path
-            restartLspServer(project)
-        }
+
+        // Otherwise (e.g. a C# solution with BHL scripts outside the indexed content),
+        // fall back to a file browser so the action always does something visible.
+        val descriptor = FileChooserDescriptor(true, true, false, false, false, false)
+            .withTitle("Select BHL Project")
+            .withDescription("Choose bhl.proj (or the directory that contains it)")
+        val chosen = FileChooser.chooseFile(descriptor, project, null) ?: return
+        val dir = if (chosen.isDirectory) chosen else chosen.parent
+        applyChoice(project, dir.path)
+    }
+
+    /** Persist the pick as the top-priority "BHL project directory" override and restart. */
+    private fun applyChoice(project: Project, directoryPath: String) {
+        BhlSettings.getInstance(project).projectDirectory = directoryPath
+        restartLspServer(project)
     }
 
     private fun restartLspServer(project: Project) {
-        val manager = LspServerManager.getInstance(project)
-        manager.stopAndRestartIfNeeded(BhlLspServerSupportProvider::class.java)
+        com.intellij.platform.lsp.api.LspServerManager.getInstance(project)
+            .stopAndRestartIfNeeded(BhlLspServerSupportProvider::class.java)
     }
 }
