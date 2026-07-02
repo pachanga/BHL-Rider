@@ -1,0 +1,38 @@
+<idea-plugin>
+    <id>com.bitdotgames.bhl.rider</id>
+    <name>BHL</name>
+    <vendor url="https://github.com/bitdotgames">bitdotgames</vendor>
+
+    <description><![CDATA[
+    LSP client for the <a href="https://github.com/bitdotgames/bhl">BHL</a> (Behaviour Highlevel Language)
+    scripting language. Launches the BHL language server (<code>bhl lsp</code>) over stdio and wires it
+    up to files with the <code>.bhl</code> extension.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="BHL File"
+                  implementationClass="com.bitdotgames.bhl.rider.BhlFileType"
+                  fieldName="INSTANCE"
+                  language="BHL"
+                  extensions="bhl"/>
+
+        <projectConfigurable parentId="language"
+                              instance="com.bitdotgames.bhl.rider.settings.BhlSettingsConfigurable"
+                              id="settings.bhl"
+                              displayName="BHL"/>
+
+        <platform.lsp.serverSupportProvider
+                implementation="com.bitdotgames.bhl.rider.lsp.BhlLspServerSupportProvider"/>
+    </extensions>
+
+    <actions>
+        <action id="Bhl.SelectProjectFile"
+                class="com.bitdotgames.bhl.rider.actions.SelectBhlProjectFileAction"
+                text="Select BHL Project File..."
+                description="Choose which bhl.proj to use when the project contains more than one">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
