@@ -15,6 +15,9 @@ class BhlSettingsState {
     // Off by default: BHL_REBUILD makes the launcher run dotnet clean+publish before the
     // LSP starts, which can exceed the IDE's init timeout. Enable only for LSP development.
     var forceRebuild: Boolean = false
+    // Mirror raw JSON-RPC frames into the BHL LSP console. Read per-frame, so toggling
+    // takes effect without a server restart.
+    var traceLsp: Boolean = false
     var projectDirectory: String = ""
     var selectedProjectFile: String = ""
 }
@@ -46,6 +49,12 @@ class BhlSettings : PersistentStateComponent<BhlSettingsState> {
         get() = state.forceRebuild
         set(value) {
             state.forceRebuild = value
+        }
+
+    var traceLsp: Boolean
+        get() = state.traceLsp
+        set(value) {
+            state.traceLsp = value
         }
 
     var projectDirectory: String

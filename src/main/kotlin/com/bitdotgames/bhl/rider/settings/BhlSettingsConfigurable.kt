@@ -40,6 +40,14 @@ class BhlSettingsConfigurable(private val project: Project) : BoundConfigurable(
                 .bindSelected(settings::forceRebuild)
                 .comment("Sets BHL_REBUILD=1 and BHL_SILENT=1 when launching the language server.")
         }
+        row {
+            checkBox("Trace LSP traffic")
+                .bindSelected(settings::traceLsp)
+                .comment(
+                    "Mirrors raw JSON-RPC requests/responses into the BHL LSP console " +
+                        "(truncated). Takes effect immediately, no server restart needed.",
+                )
+        }
     }
 
     override fun apply() {

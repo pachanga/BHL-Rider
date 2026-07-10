@@ -61,6 +61,13 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
         append(contentType, "[lsp] $message", mirrorToIdeaLog = false, reveal = false)
     }
 
+    /**
+     * Logs one raw JSON-RPC frame ([direction] is "-->" client→server or "<--" server→client).
+     * Not mirrored to idea.log (frames are large and frequent) and never reveals the panel.
+     */
+    fun logWire(direction: String, frame: String) =
+        append(ConsoleViewContentType.LOG_VERBOSE_OUTPUT, "$direction $frame", mirrorToIdeaLog = false, reveal = false)
+
     /** Prints a raw chunk of the server's stderr as-is (it already carries its own newlines). */
     fun printServerStderr(text: String) = printRaw(ConsoleViewContentType.LOG_ERROR_OUTPUT, text)
 

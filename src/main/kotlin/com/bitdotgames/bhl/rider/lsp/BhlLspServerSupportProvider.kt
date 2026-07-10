@@ -26,9 +26,18 @@ import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
+import com.intellij.platform.lsp.impl.connector.LspCommunicationLogger
+import com.intellij.platform.lsp.impl.connector.LspCommunicationLoggerProvider
+import com.intellij.openapi.diagnostic.debug
+import com.intellij.openapi.diagnostic.logger
 import org.eclipse.lsp4j.InitializeResult
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+
+private val LOG = logger<BhlLspServerDescriptor>()
+
+/** Console truncation for traced JSON-RPC frames (semantic-token responses can be huge). */
+private const val MAX_TRACED_FRAME_LENGTH = 10_000
 
 class BhlLspServerSupportProvider : LspServerSupportProvider {
     override fun fileOpened(
@@ -64,10 +73,36 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
 }
 
 class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
-    ProjectWideLspServerDescriptor(project, "BHL Language Server") {
+    ProjectWideLspServerDescriptor(project, "BHL Language Server"), LspCommunicationLoggerProvider {
 
     override fun isSupportedFile(file: VirtualFile): Boolean =
         file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+
+    /**
+     * Receives every raw JSON-RPC frame from the platform's connector (which checks
+     * `descriptor is LspCommunicationLoggerProvider`). The "Trace LSP traffic" setting is
+     * read per frame, so toggling it applies without a server restart. When tracing is off,
+     * frames still go to LOG.debug — enable the plugin's category in Debug Log Settings to
+     * get them in idea.log (this replaces the connector's own default debug logging).
+     */
+    override fun createCommunicationLogger(): LspCommunicationLogger = object : LspCommunicationLogger {
+        override fun logInbound(message: CharSequence) = logFrame("<--", message)
+
+        override fun logOutbound(message: CharSequence) = logFrame("-->", message)
+
+        private fun logFrame(direction: String, message: CharSequence) {
+            if (BhlSettings.getInstance(project).traceLsp) {
+                val text = if (message.length > MAX_TRACED_FRAME_LENGTH) {
+                    "${message.subSequence(0, MAX_TRACED_FRAME_LENGTH)}… [truncated, ${message.length} chars]"
+                } else {
+                    message.toString()
+                }
+                BhlLspConsoleService.getInstance(project).logWire(direction, text)
+            } else {
+                LOG.debug { "$direction $message" }
+            }
+        }
+    }
 
     // Two descriptors for the same working directory are the same server, so starting from
     // both fileOpened and the action reuses one server instead of spawning duplicates.

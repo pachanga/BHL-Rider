@@ -107,10 +107,17 @@ activity, and opens automatically on the first message:
   Log Settings** to see the finer records here as well. (This reflects all LSP servers, which
   in Rider is normally just BHL.)
 
-Per-request frames (completion, hover, etc.) are **not** shown — the platform exposes no
-public hook for raw JSON-RPC traffic. For that level of detail, set a *Log file* in the
-settings (passed to the server as `--log-file`). Everything in the console is also mirrored
-to `idea.log` (**Help ▸ Show Log in Finder**).
+To see the **raw JSON-RPC requests/responses** (completion, hover, semantic tokens, …),
+enable **Trace LSP traffic** in the settings — every frame is mirrored into the console,
+prefixed `-->` (client → server) and `<--` (server → client), truncated at 10 000 chars.
+The toggle is read per frame, so it applies immediately without a server restart. With
+tracing off, frames are still written at DEBUG level to the plugin's log category
+(`#com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptor` in Debug Log Settings).
+
+Alternatively, set a *Log file* in the settings (passed to the server as `--log-file`) to
+get the server's own view of the traffic. Everything in the console is also mirrored to
+`idea.log` (**Help ▸ Show Log in Finder**), except `[lsp]` platform records and traced
+frames.
 
 ## Development
 
