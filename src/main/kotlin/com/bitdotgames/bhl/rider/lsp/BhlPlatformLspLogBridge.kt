@@ -7,8 +7,12 @@ import java.util.logging.Level
 import java.util.logging.LogRecord
 import java.util.logging.Logger
 
-/** Root category of the platform's built-in LSP client (idea.log logger names). */
-private const val PLATFORM_LSP_CATEGORY = "com.intellij.platform.lsp"
+/**
+ * Root category of the platform's built-in LSP client. IntelliJ's Logger.getInstance(Class)
+ * names JUL loggers "#" + FQN, so the '#' prefix is required — without it the handler sits
+ * on a logger outside the "#com.intellij..." parent chain and never receives records.
+ */
+private const val PLATFORM_LSP_CATEGORY = "#com.intellij.platform.lsp"
 
 /**
  * Bridges IntelliJ's platform LSP logging (the `com.intellij.platform.lsp.*` loggers, which
@@ -37,6 +41,8 @@ class BhlPlatformLspLogBridge private constructor(private val project: Project) 
     override fun close() {}
 
     companion object {
+        private val LOG = com.intellij.openapi.diagnostic.Logger.getInstance(BhlPlatformLspLogBridge::class.java)
+
         /** Attaches the bridge for [project]; auto-detaches when [parent] is disposed. */
         fun install(project: Project, parent: Disposable) {
             runCatching {
@@ -46,6 +52,8 @@ class BhlPlatformLspLogBridge private constructor(private val project: Project) 
                 Disposable { logger.removeHandler(handler) }.also {
                     com.intellij.openapi.util.Disposer.register(parent, it)
                 }
+            }.onFailure {
+                LOG.warn("Failed to install platform LSP log bridge; [lsp] console mirroring disabled", it)
             }
         }
     }

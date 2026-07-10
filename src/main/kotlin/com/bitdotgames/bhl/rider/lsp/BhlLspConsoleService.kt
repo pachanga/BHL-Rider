@@ -40,7 +40,13 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
     fun logServerMessage(type: MessageType, message: String) =
         append(contentTypeFor(type), "[${type.name.lowercase()}] $message")
 
-    fun logInfo(message: String) = append(ConsoleViewContentType.LOG_INFO_OUTPUT, "[info] $message")
+    /**
+     * [reveal] controls whether this line may auto-open the tool window (first line only).
+     * Pass `false` for lines that fire in projects with no BHL activity, so the panel does
+     * not pop up in unrelated projects.
+     */
+    fun logInfo(message: String, reveal: Boolean = true) =
+        append(ConsoleViewContentType.LOG_INFO_OUTPUT, "[info] $message", reveal = reveal)
 
     fun logTrace(message: String) = append(ConsoleViewContentType.LOG_VERBOSE_OUTPUT, "[trace] $message")
 
@@ -51,7 +57,8 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
             level.intValue() >= Level.WARNING.intValue() -> ConsoleViewContentType.LOG_WARNING_OUTPUT
             else -> ConsoleViewContentType.LOG_VERBOSE_OUTPUT
         }
-        append(contentType, "[lsp] $message", mirrorToIdeaLog = false)
+        // reveal=false: these records can come from any LSP server in any project.
+        append(contentType, "[lsp] $message", mirrorToIdeaLog = false, reveal = false)
     }
 
     /** Prints a raw chunk of the server's stderr as-is (it already carries its own newlines). */
@@ -69,7 +76,12 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
         ensureVisibleOnce()
     }
 
-    private fun append(contentType: ConsoleViewContentType, rawLine: String, mirrorToIdeaLog: Boolean = true) {
+    private fun append(
+        contentType: ConsoleViewContentType,
+        rawLine: String,
+        mirrorToIdeaLog: Boolean = true,
+        reveal: Boolean = true,
+    ) {
         // Mirror into idea.log so the trail survives even if the console UI isn't visible.
         if (mirrorToIdeaLog) LOG.info(rawLine)
         val line = if (rawLine.endsWith("\n")) rawLine else "$rawLine\n"
@@ -80,7 +92,7 @@ class BhlLspConsoleService(private val project: Project) : Disposable {
             pending.add(contentType to line)
             while (pending.size > MAX_PENDING) pending.poll()
         }
-        ensureVisibleOnce()
+        if (reveal) ensureVisibleOnce()
     }
 
     /** Reveal the tool window once, on the first message, without stealing focus afterwards. */

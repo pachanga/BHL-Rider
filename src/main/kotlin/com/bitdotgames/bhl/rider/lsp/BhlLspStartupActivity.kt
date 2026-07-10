@@ -8,7 +8,9 @@ import com.intellij.platform.lsp.api.LspServerManager
 class BhlLspStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         val console = BhlLspConsoleService.getInstance(project)
-        console.logInfo("BHL plugin initialized; open a .bhl file to start the language server")
+        // reveal=false: this line fires in every project, BHL or not — it must not pop the
+        // tool window in unrelated projects. It still lands in the console buffer/idea.log.
+        console.logInfo("BHL plugin initialized; open a .bhl file to start the language server", reveal = false)
         LspServerManager.getInstance(project)
             .addLspServerManagerListener(BhlLspManagerListener(project), console, true)
         // Mirror Rider's own platform LSP logs into the BHL LSP console.
