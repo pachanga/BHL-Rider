@@ -18,6 +18,9 @@
                   language="BHL"
                   extensions="bhl"/>
 
+        <lang.syntaxHighlighterFactory language="BHL"
+                                       implementationClass="com.bitdotgames.bhl.rider.highlight.BhlSyntaxHighlighterFactory"/>
+
         <projectConfigurable parentId="language"
                               instance="com.bitdotgames.bhl.rider.settings.BhlSettingsConfigurable"
                               id="settings.bhl"

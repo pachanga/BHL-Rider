@@ -90,6 +90,18 @@ On opening a `.bhl` file the plugin builds this command line:
 - On Windows, a `.bat` executable is run through `cmd.exe /c` (Java cannot exec `.bat`
   files directly), mirroring the VSCode client's `shell: true` handling.
 
+## Highlighting
+
+Highlighting is layered:
+
+- A minimal built-in lexer colors **comments** (`//`, `/* */`) and **strings** — the BHL
+  server sends comments to ANTLR's hidden channel, so they are never reported as semantic
+  tokens.
+- Everything else comes from **LSP semantic tokens**. Types/classes, functions, variables,
+  and parameters use BHL-specific color keys (with colors shipped for the Default and
+  Darcula scheme families); keywords, strings, numbers, properties, and operators use the
+  IDE's standard colors.
+
 ## Logs
 
 The **BHL LSP** tool window (bottom) shows a console with both client- and server-side
