@@ -4,8 +4,11 @@ package com.bitdotgames.bhl.rider.lsp
 
 import com.bitdotgames.bhl.rider.BhlFileType
 import com.bitdotgames.bhl.rider.BhlIcons
+import com.bitdotgames.bhl.rider.BhlTextAttributes
 import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.bitdotgames.bhl.rider.settings.BhlSettingsConfigurable
+import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.platform.lsp.api.customization.LspSemanticTokensSupport
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
@@ -194,6 +197,23 @@ class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
         super.createLsp4jClient(
             BhlLoggingNotificationsHandler(handler, BhlLspConsoleService.getInstance(project)),
         )
+
+    /**
+     * The platform's default mapping sends type/class/variable/parameter to attribute keys
+     * that stock IntelliJ schemes leave uncolored (unlike VSCode themes). Route them (and
+     * function, plain on light schemes) to BHL keys with colors shipped per scheme; the
+     * remaining types (keyword/string/number/property/operator) have good defaults.
+     */
+    override val lspSemanticTokensSupport: LspSemanticTokensSupport = object : LspSemanticTokensSupport() {
+        override fun getTextAttributesKey(tokenType: String, modifiers: List<String>): TextAttributesKey? =
+            when (tokenType) {
+                "type", "class" -> BhlTextAttributes.TYPE
+                "function" -> BhlTextAttributes.FUNCTION
+                "variable" -> BhlTextAttributes.VARIABLE
+                "parameter" -> BhlTextAttributes.PARAMETER
+                else -> super.getTextAttributesKey(tokenType, modifiers)
+            }
+    }
 
     override val lspServerListener: LspServerListener = object : LspServerListener {
         override fun serverInitialized(result: InitializeResult) {

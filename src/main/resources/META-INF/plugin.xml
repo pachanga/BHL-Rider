@@ -33,6 +33,11 @@
                     factoryClass="com.bitdotgames.bhl.rider.lsp.BhlLspConsoleToolWindowFactory"/>
 
         <postStartupActivity implementation="com.bitdotgames.bhl.rider.lsp.BhlLspStartupActivity"/>
+
+        <!-- Colors for BHL semantic-token keys; without these, types/variables/parameters
+             map to attribute keys that stock IntelliJ schemes leave uncolored. -->
+        <additionalTextAttributes scheme="Default" file="colorSchemes/BhlDefault.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorSchemes/BhlDarcula.xml"/>
     </extensions>
 
     <actions>
