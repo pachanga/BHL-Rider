@@ -153,7 +153,13 @@ enable **Trace LSP traffic** in the settings — every frame is mirrored into th
 prefixed `-->` (client → server) and `<--` (server → client), truncated at 10 000 chars.
 The toggle is read per frame, so it applies immediately without a server restart. With
 tracing off, frames are still written at DEBUG level to the plugin's log category
-(`#com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptor` in Debug Log Settings).
+(`#com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptorWithTracing` in Debug Log Settings).
+
+Tracing relies on an internal, unstable platform class
+(`com.intellij.platform.lsp.impl.connector.LspCommunicationLoggerProvider`) that isn't part of
+the public plugin SDK and isn't guaranteed to exist on every IDE version. The plugin checks
+for it at runtime and simply runs without tracing if it's absent — this never affects the
+rest of the plugin (server launch, highlighting, completion, etc.), which don't depend on it.
 
 Alternatively, set a *Log file* in the settings (passed to the server as `--log-file`) to
 get the server's own view of the traffic. Everything in the console is also mirrored to

@@ -1,8 +1,8 @@
 package com.bitdotgames.bhl.rider.actions
 
 import com.bitdotgames.bhl.rider.lsp.BhlLspConsoleService
-import com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptor
 import com.bitdotgames.bhl.rider.lsp.BhlLspServerSupportProvider
+import com.bitdotgames.bhl.rider.lsp.newBhlLspServerDescriptor
 import com.bitdotgames.bhl.rider.lsp.BhlProjectFileResolver
 import com.bitdotgames.bhl.rider.settings.BhlSettings
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -62,7 +62,7 @@ class SelectBhlProjectFileAction : AnAction() {
             // No live server (including a stale, exited one): start one for the chosen
             // directory. Do NOT stopServers first — a stop scheduled right before the start
             // races and shuts the new server down.
-            manager.ensureServerStarted(providerClass, BhlLspServerDescriptor(project, Paths.get(directoryPath)))
+            manager.ensureServerStarted(providerClass, newBhlLspServerDescriptor(project, Paths.get(directoryPath)))
         }
     }
 }
