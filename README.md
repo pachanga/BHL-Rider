@@ -59,6 +59,25 @@ The working directory for the server is resolved in this order:
 3. **Project-wide search** of the open project's indexed files for `bhl.proj` (0 → server
    doesn't start; 1 → used; many → remembered choice or a picker).
 
+### Multiple BHL directories in one window
+
+You can **attach** additional directories to an existing Rider window (**File ▸ Open…**,
+select the folder, choose *Attach*) — useful when BHL scripts live in a separate folder from
+the C# solution you have open, or when you work with more than one independent BHL
+project (each with its own `bhl.proj`) at the same time.
+
+Opening a `.bhl` file under an attached directory starts a **separate BHL LSP server
+process** for that directory (walk-up resolves each file to its own nearest `bhl.proj`, and
+the server descriptor is keyed by that directory, so two different directories always get
+two independent servers rather than sharing one). Each server is scoped to only the files
+under its own directory, so opening files from two attached BHL directories at once runs
+two isolated language servers without cross-talk.
+
+The **BHL project directory** override (set via *Select BHL Project File…*) is a single
+value, so it's meant for pinning one directory when discovery can't find it automatically —
+it doesn't apply to a specific attached folder. With multiple directories attached, leave it
+unset and let walk-up resolve each file to its own directory's server.
+
 ## Settings
 
 Configure the plugin under **Settings ▸ Languages & Frameworks ▸ BHL**:

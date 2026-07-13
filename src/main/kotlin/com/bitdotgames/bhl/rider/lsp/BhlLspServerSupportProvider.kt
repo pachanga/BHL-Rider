@@ -18,6 +18,7 @@ import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.WorkspaceFolder
@@ -78,8 +79,19 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
 class BhlLspServerDescriptor(project: Project, private val workDir: Path) :
     ProjectWideLspServerDescriptor(project, "BHL Language Server"), LspCommunicationLoggerProvider {
 
-    override fun isSupportedFile(file: VirtualFile): Boolean =
-        file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+    /**
+     * Scoped to files under [workDir], not just any `.bhl` file: with several BHL
+     * directories attached to one project (each resolving to its own descriptor/server, see
+     * [BhlLspServerDescriptor.equals]), the platform decides which of the *already running*
+     * servers a given open file is routed to by calling `isSupportedFile` on each one — so
+     * without this check, a file in directory A would also be sent to directory B's server.
+     */
+    override fun isSupportedFile(file: VirtualFile): Boolean {
+        val isBhl = file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
+        if (!isBhl) return false
+        val workDirFile = LocalFileSystem.getInstance().findFileByNioFile(workDir) ?: return true
+        return VfsUtilCore.isAncestor(workDirFile, file, false)
+    }
 
     /**
      * Receives every raw JSON-RPC frame from the platform's connector (which checks
