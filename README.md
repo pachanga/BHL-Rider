@@ -107,6 +107,11 @@ plugin itself: Rider's built-in LSP client does not implement `textDocument/sign
 so the plugin queries the server directly. It auto-pops on `(` and `,` and is available on
 demand via **Ctrl+P** (View ▸ Parameter Info).
 
+`.bhl` files are plain-text PSI (see above), so the IDE's spell checker treats their
+contents as prose and would otherwise flag BHL keywords (`coro`, `func`, `paral`, …) and
+primitive type names as typos. The plugin ships a bundled dictionary
+(`resources/dictionaries/bhl.dic`) listing them so they're never underlined.
+
 ## Logs
 
 The **BHL LSP** tool window (bottom) shows a console with both client- and server-side
