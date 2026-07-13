@@ -102,6 +102,11 @@ Highlighting is layered:
   Darcula scheme families); keywords, strings, numbers, properties, and operators use the
   IDE's standard colors.
 
+**Signature help** (the parameter popup while typing call arguments) is bridged by the
+plugin itself: Rider's built-in LSP client does not implement `textDocument/signatureHelp`,
+so the plugin queries the server directly. It auto-pops on `(` and `,` and is available on
+demand via **Ctrl+P** (View ▸ Parameter Info).
+
 ## Logs
 
 The **BHL LSP** tool window (bottom) shows a console with both client- and server-side
