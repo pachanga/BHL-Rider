@@ -33,6 +33,7 @@
                     anchor="bottom"
                     secondary="true"
                     canCloseContents="false"
+                    icon="/icons/bhl.svg"
                     factoryClass="com.bitdotgames.bhl.rider.lsp.BhlLspConsoleToolWindowFactory"/>
 
         <postStartupActivity implementation="com.bitdotgames.bhl.rider.lsp.BhlLspStartupActivity"/>

@@ -56,6 +56,7 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         }
 
         // Fallback: project-wide index search runs async, so start via the manager.
+        console.logInfo("bhl.proj: not resolved synchronously for ${file.path} — falling back to async index search")
         BhlProjectFileResolver.resolveViaProjectIndex(project) { resolved ->
             console.logInfo("ensuring BHL server is started (workDir=$resolved)")
             LspServerManager.getInstance(project)
@@ -67,21 +68,50 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
         LspServerWidgetItem(lspServer, currentFile, BhlIcons.FILE, BhlSettingsConfigurable::class.java)
 }
 
-open class BhlLspServerDescriptor(project: Project, protected val workDir: Path) :
-    LspServerDescriptor(project, "BHL Language Server", *resolveRoots(workDir)) {
+open class BhlLspServerDescriptor private constructor(
+    project: Project,
+    protected val workDir: Path,
+    protected val srcDirs: List<Path>,
+) : LspServerDescriptor(project, "BHL Language Server", *resolveRoots(srcDirs)) {
+
+    constructor(project: Project, workDir: Path) : this(project, workDir, resolveBhlSrcDirs(workDir, project))
+
+    init {
+        ensureBhlContentRoots(project, srcDirs.mapNotNull { LocalFileSystem.getInstance().findFileByNioFile(it) })
+    }
+
+    /** VirtualFiles for [srcDirs] that currently exist; recomputed lazily since [workDir]'s
+     * `bhl.proj` (and therefore its resolved `src_dirs`) can appear after this descriptor is
+     * constructed. */
+    private val srcDirFiles: List<VirtualFile>
+        get() = srcDirs.mapNotNull { LocalFileSystem.getInstance().findFileByNioFile(it) }
 
     /**
-     * Scoped to files under [workDir], not just any `.bhl` file: with several BHL
-     * directories attached to one project (each resolving to its own descriptor/server, see
-     * [BhlLspServerDescriptor.equals]), the platform decides which of the *already running*
-     * servers a given open file is routed to by calling `isSupportedFile` on each one — so
-     * without this check, a file in directory A would also be sent to directory B's server.
+     * Scoped to files under [srcDirs] — [workDir] plus any `src_dirs` the project's `bhl.proj`
+     * declares outside it (e.g. a shared library folder referenced via `"../shared"`) — not
+     * just any `.bhl` file: with several BHL directories attached to one project (each
+     * resolving to its own descriptor/server, see [BhlLspServerDescriptor.equals]), the
+     * platform decides which of the *already running* servers a given open file is routed to
+     * by calling `isSupportedFile` on each one — so without this check, a file in directory A
+     * would also be sent to directory B's server.
      */
     override fun isSupportedFile(file: VirtualFile): Boolean {
         val isBhl = file.fileType == BhlFileType || file.extension.equals("bhl", ignoreCase = true)
         if (!isBhl) return false
-        val workDirFile = LocalFileSystem.getInstance().findFileByNioFile(workDir) ?: return true
-        return VfsUtilCore.isAncestor(workDirFile, file, false)
+        val roots = srcDirFiles
+        if (roots.isNotEmpty() && roots.none { VfsUtilCore.isAncestor(it, file, false) }) return false
+
+        // A directory can be a src_dirs entry of more than one bhl.proj (e.g. a shared library
+        // folder referenced by both a Client and a Server project with different compile-time
+        // constants) — only the project the user picked for this file (see
+        // BhlSharedFileOwnership.kt) gets to claim it, so its diagnostics/highlighting reflect
+        // one project's interpretation instead of an unpredictable mix of both.
+        val owners = BhlResolvedProjectsCache.getInstance(project).findAllOwning(file)
+        return if (owners.size > 1) {
+            BhlSharedFileOwnershipService.getInstance(project).currentOwner(file) == workDir
+        } else {
+            true
+        }
     }
 
     // Two descriptors for the same working directory are the same server, so starting from
@@ -95,38 +125,38 @@ open class BhlLspServerDescriptor(project: Project, protected val workDir: Path)
 
     companion object {
         /**
-         * Roots scoped to [workDir], not the whole project. `LspServerManagerImpl.ensureServerStarted`
+         * Roots scoped to [srcDirs], not the whole project. `LspServerManagerImpl.ensureServerStarted`
          * decides whether a server "already exists" for a new descriptor by comparing
          * `(providerClass, getRoots())` — NOT our `equals()`/`hashCode()` override above. The
          * previous base class, `ProjectWideLspServerDescriptor`, sets roots to the *project's*
          * base directories, identical for every instance regardless of `workDir` — so with two
          * BHL directories attached to one project, the second one's `ensureServerStarted` call
          * would see matching roots against the first server and silently skip starting its own,
-         * never noticing they're different directories. Scoping roots to `workDir` fixes that
+         * never noticing they're different directories. Scoping roots to `srcDirs` fixes that
          * dedup check directly, and also feeds the platform's file-routing pre-filter (which
          * separately checks `VfsUtilCore.isAncestor` against `getRoots()`, in addition to
-         * `isSupportedFile` above).
+         * `isSupportedFile` above) — including for files in a shared `src_dirs` folder outside
+         * `workDir`, which otherwise never gets routed to this server at all.
          */
-        private fun resolveRoots(workDir: Path): Array<VirtualFile> {
-            val vFile = LocalFileSystem.getInstance().findFileByNioFile(workDir)
-            return if (vFile != null) arrayOf(vFile) else emptyArray()
-        }
+        private fun resolveRoots(srcDirs: List<Path>): Array<VirtualFile> =
+            srcDirs.mapNotNull { LocalFileSystem.getInstance().findFileByNioFile(it) }.toTypedArray()
     }
 
     /**
-     * Point the server at the selected bhl.proj directory. The BHL server reads its project
-     * from `workspaceFolders` (falling back to rootUri); the IDE otherwise fills these with
-     * the solution's own roots, which are not the BHL project directory.
+     * Point the server at the selected bhl.proj directory (and any other `src_dirs` it
+     * declares). The BHL server reads its project from `workspaceFolders` (falling back to
+     * rootUri); the IDE otherwise fills these with the solution's own roots, which are not the
+     * BHL project directory.
      */
     @Suppress("DEPRECATION") // rootUri is deprecated in LSP; set as a fallback for older servers
     override fun createInitializeParams(): InitializeParams {
         val params = super.createInitializeParams()
-        val vFile = LocalFileSystem.getInstance().findFileByNioFile(workDir)
-        val uri = if (vFile != null) getFileUri(vFile) else workDir.toUri().toString()
-        val name = workDir.fileName?.toString() ?: "bhl"
-        params.setRootUri(uri)
-        params.workspaceFolders = mutableListOf(WorkspaceFolder(uri, name))
-        BhlLspConsoleService.getInstance(project).logInfo("workspace folder: $uri")
+        val folders = srcDirFiles.ifEmpty { listOfNotNull(LocalFileSystem.getInstance().findFileByNioFile(workDir)) }
+            .map { WorkspaceFolder(getFileUri(it), it.name) }
+            .ifEmpty { listOf(WorkspaceFolder(workDir.toUri().toString(), workDir.fileName?.toString() ?: "bhl")) }
+        params.setRootUri(folders.first().uri)
+        params.workspaceFolders = folders.toMutableList()
+        BhlLspConsoleService.getInstance(project).logInfo("workspace folders: ${folders.joinToString { it.uri }}")
         return params
     }
 

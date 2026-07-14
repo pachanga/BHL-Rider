@@ -41,13 +41,25 @@ object BhlProjectFileResolver {
      */
     fun resolveSync(project: Project, contextFile: VirtualFile?): Path? {
         val console = BhlLspConsoleService.getInstance(project)
+        val cache = BhlResolvedProjectsCache.getInstance(project)
         configuredProjectDirectory(project)?.let {
             console.logInfo("bhl.proj: using configured project directory $it")
+            cache.remember(it)
             return it
         }
         contextFile?.let { findNearestProjectDir(it) }?.let {
             console.logInfo("bhl.proj: found via walk-up in ${it.path}")
-            return Paths.get(it.path)
+            val dir = Paths.get(it.path)
+            cache.remember(dir)
+            return dir
+        }
+        // The file may be outside its owning bhl.proj's own directory entirely (e.g. a
+        // shared folder one of that project's src_dirs points at) — walk-up above can't find
+        // such a bhl.proj since it isn't an ancestor. If we've already resolved that project
+        // once this session (its src_dirs are cached), match against those instead.
+        contextFile?.let { cache.findOwning(it) }?.let {
+            console.logInfo("bhl.proj: matched cached src_dirs, using $it")
+            return it
         }
         return null
     }
@@ -59,6 +71,8 @@ object BhlProjectFileResolver {
      */
     fun resolveViaProjectIndex(project: Project, onResolved: (Path) -> Unit) {
         val console = BhlLspConsoleService.getInstance(project)
+        val cache = BhlResolvedProjectsCache.getInstance(project)
+        val remember: (Path) -> Unit = { cache.remember(it); onResolved(it) }
         ApplicationManager.getApplication().executeOnPooledThread {
             val files = findProjectFiles(project)
             when {
@@ -71,7 +85,7 @@ object BhlProjectFileResolver {
 
                 files.size == 1 -> {
                     console.logInfo("bhl.proj: found ${files[0].path}")
-                    onResolved(Paths.get(files[0].parent.path))
+                    remember(Paths.get(files[0].parent.path))
                 }
 
                 else -> {
@@ -79,13 +93,13 @@ object BhlProjectFileResolver {
                     val remembered = files.firstOrNull { it.path == settings.selectedProjectFile }
                     if (remembered != null) {
                         console.logInfo("bhl.proj: using remembered ${remembered.path}")
-                        onResolved(Paths.get(remembered.parent.path))
+                        remember(Paths.get(remembered.parent.path))
                     } else {
                         console.logInfo("bhl.proj: ${files.size} candidates — prompting for a choice")
                         ApplicationManager.getApplication().invokeLater {
                             promptForChoice(project, files) { chosen ->
                                 settings.selectedProjectFile = chosen.path
-                                onResolved(Paths.get(chosen.parent.path))
+                                remember(Paths.get(chosen.parent.path))
                             }
                         }
                     }
