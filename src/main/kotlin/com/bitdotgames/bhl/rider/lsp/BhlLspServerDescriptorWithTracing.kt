@@ -65,13 +65,24 @@ private class BhlLspServerDescriptorWithTracing(project: Project, workDir: Path)
      * read per frame, so toggling it applies without a server restart. When tracing is off,
      * frames still go to LOG.debug — enable this class's category in Debug Log Settings to
      * get them in idea.log (this replaces the connector's own default debug logging).
+     *
+     * Fires for as long as the server is alive, which can outlast a dynamic plugin reload
+     * (installing an updated build without restarting the IDE): the project-service lookups
+     * below may then resolve against a *different* PluginClassLoader than the one this
+     * connected server was itself loaded by, throwing `ClassCastException: class X cannot be
+     * cast to class X` for what looks like the same class. `runCatching` keeps that
+     * (console-logging-only, non-critical) failure from surfacing as an unhandled exception.
      */
     override fun createCommunicationLogger(): LspCommunicationLogger = object : LspCommunicationLogger {
-        override fun logInbound(message: CharSequence) = logFrame("<--", message)
+        override fun logInbound(message: CharSequence) {
+            logFrame("<--", message)
+        }
 
-        override fun logOutbound(message: CharSequence) = logFrame("-->", message)
+        override fun logOutbound(message: CharSequence) {
+            logFrame("-->", message)
+        }
 
-        private fun logFrame(direction: String, message: CharSequence) {
+        private fun logFrame(direction: String, message: CharSequence) = runCatching {
             if (BhlSettings.getInstance(project).traceLsp) {
                 val text = if (message.length > MAX_TRACED_FRAME_LENGTH) {
                     "${message.subSequence(0, MAX_TRACED_FRAME_LENGTH)}… [truncated, ${message.length} chars]"

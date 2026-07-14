@@ -214,16 +214,29 @@ open class BhlLspServerDescriptor(project: Project, protected val workDir: Path)
             }
     }
 
+    /**
+     * These callbacks fire for as long as this server instance is alive, which can outlast a
+     * dynamic plugin reload (installing an updated build without restarting the IDE): the
+     * fresh `getInstance` lookup below may then return a project-service instance from a
+     * *different* PluginClassLoader than the one this listener was itself loaded by, throwing
+     * `ClassCastException: class X cannot be cast to class X` for what looks like the same
+     * class. `runCatching` keeps that (console-logging-only, non-critical) failure from
+     * surfacing as an unhandled exception.
+     */
     override val lspServerListener: LspServerListener = object : LspServerListener {
         override fun serverInitialized(result: InitializeResult) {
-            val info = result.serverInfo
-            val suffix = info?.let { ": ${it.name} ${it.version ?: ""}".trimEnd() } ?: ""
-            BhlLspConsoleService.getInstance(project).logInfo("server initialized$suffix")
+            runCatching {
+                val info = result.serverInfo
+                val suffix = info?.let { ": ${it.name} ${it.version ?: ""}".trimEnd() } ?: ""
+                BhlLspConsoleService.getInstance(project).logInfo("server initialized$suffix")
+            }
         }
 
         override fun serverStopped(crashed: Boolean) {
-            BhlLspConsoleService.getInstance(project)
-                .logInfo(if (crashed) "server crashed" else "server stopped")
+            runCatching {
+                BhlLspConsoleService.getInstance(project)
+                    .logInfo(if (crashed) "server crashed" else "server stopped")
+            }
         }
     }
 }
