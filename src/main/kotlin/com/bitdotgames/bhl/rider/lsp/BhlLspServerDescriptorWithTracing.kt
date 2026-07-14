@@ -1,14 +1,21 @@
 package com.bitdotgames.bhl.rider.lsp
 
 import com.bitdotgames.bhl.rider.settings.BhlSettings
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.impl.connector.LspCommunicationLogger
 import com.intellij.platform.lsp.impl.connector.LspCommunicationLoggerProvider
 import java.nio.file.Path
 
-private val LOG = logger<BhlLspServerDescriptorWithTracing>()
+// Deliberately NOT `logger<BhlLspServerDescriptorWithTracing>()`: that reified generic call
+// resolves `BhlLspServerDescriptorWithTracing::class.java` right here, in a top-level property
+// initializer that runs unconditionally in this file's <clinit> the moment anything in this
+// file is touched (including newBhlLspServerDescriptor() below) — which forces classloading of
+// the tracing subclass (and therefore the unstable interface it implements) regardless of the
+// reflective guard, defeating the whole point of this file. A plain string category has no
+// such effect.
+private val LOG = Logger.getInstance("com.bitdotgames.bhl.rider.lsp.BhlLspServerDescriptorWithTracing")
 
 /** Console truncation for traced JSON-RPC frames (semantic-token responses can be huge). */
 private const val MAX_TRACED_FRAME_LENGTH = 10_000
@@ -35,10 +42,12 @@ fun newBhlLspServerDescriptor(project: Project, workDir: Path): BhlLspServerDesc
 
 private val isTracingSupportAvailable: Boolean by lazy {
     try {
+        // Use the always-loadable base descriptor's classloader, not the tracing subclass's —
+        // referencing the subclass itself here is exactly the mistake explained above.
         Class.forName(
             "com.intellij.platform.lsp.impl.connector.LspCommunicationLoggerProvider",
             false,
-            BhlLspServerDescriptorWithTracing::class.java.classLoader,
+            BhlLspServerDescriptor::class.java.classLoader,
         )
         true
     } catch (e: Throwable) {
