@@ -27,8 +27,8 @@ import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerListener
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
+import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerSupportProvider
-import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.InitializeResult
 import java.nio.charset.StandardCharsets
@@ -68,7 +68,7 @@ class BhlLspServerSupportProvider : LspServerSupportProvider {
 }
 
 open class BhlLspServerDescriptor(project: Project, protected val workDir: Path) :
-    ProjectWideLspServerDescriptor(project, "BHL Language Server") {
+    LspServerDescriptor(project, "BHL Language Server", *resolveRoots(workDir)) {
 
     /**
      * Scoped to files under [workDir], not just any `.bhl` file: with several BHL
@@ -85,11 +85,33 @@ open class BhlLspServerDescriptor(project: Project, protected val workDir: Path)
     }
 
     // Two descriptors for the same working directory are the same server, so starting from
-    // both fileOpened and the action reuses one server instead of spawning duplicates.
+    // both fileOpened and the action reuses one server instead of spawning duplicates. This
+    // equals()/hashCode() override is NOT what the platform's own dedup uses, though — see
+    // resolveRoots below for the part that actually matters for that.
     override fun equals(other: Any?): Boolean =
         other is BhlLspServerDescriptor && other.project == project && other.workDir == workDir
 
     override fun hashCode(): Int = workDir.hashCode()
+
+    companion object {
+        /**
+         * Roots scoped to [workDir], not the whole project. `LspServerManagerImpl.ensureServerStarted`
+         * decides whether a server "already exists" for a new descriptor by comparing
+         * `(providerClass, getRoots())` — NOT our `equals()`/`hashCode()` override above. The
+         * previous base class, `ProjectWideLspServerDescriptor`, sets roots to the *project's*
+         * base directories, identical for every instance regardless of `workDir` — so with two
+         * BHL directories attached to one project, the second one's `ensureServerStarted` call
+         * would see matching roots against the first server and silently skip starting its own,
+         * never noticing they're different directories. Scoping roots to `workDir` fixes that
+         * dedup check directly, and also feeds the platform's file-routing pre-filter (which
+         * separately checks `VfsUtilCore.isAncestor` against `getRoots()`, in addition to
+         * `isSupportedFile` above).
+         */
+        private fun resolveRoots(workDir: Path): Array<VirtualFile> {
+            val vFile = LocalFileSystem.getInstance().findFileByNioFile(workDir)
+            return if (vFile != null) arrayOf(vFile) else emptyArray()
+        }
+    }
 
     /**
      * Point the server at the selected bhl.proj directory. The BHL server reads its project
