@@ -15,5 +15,6 @@ class BhlLspStartupActivity : ProjectActivity {
             .addLspServerManagerListener(BhlLspManagerListener(project), console, true)
         // Mirror Rider's own platform LSP logs into the BHL LSP console.
         BhlPlatformLspLogBridge.install(project, console)
+        installBhlDocumentListener(project, console)
     }
 }

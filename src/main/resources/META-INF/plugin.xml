@@ -49,7 +49,6 @@
              null for anything that isn't a .bhl file. -->
         <codeInsight.parameterInfo language="TEXT"
                                    implementationClass="com.bitdotgames.bhl.rider.lsp.BhlParameterInfoHandler"/>
-        <typedHandler implementation="com.bitdotgames.bhl.rider.BhlTypedHandler"/>
 
         <!-- BHL keywords/primitive types so the spell checker doesn't flag them as typos
              in .bhl files (which are plain-text PSI — see the parameter-info EP above). -->

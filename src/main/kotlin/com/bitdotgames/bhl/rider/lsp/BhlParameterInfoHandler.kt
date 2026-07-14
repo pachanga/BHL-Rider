@@ -26,9 +26,9 @@ import org.eclipse.lsp4j.SignatureInformation
 class BhlParameterInfoHandler : ParameterInfoHandler<PsiElement, SignatureInformation> {
 
     override fun findElementForParameterInfo(context: CreateParameterInfoContext): PsiElement? {
-        val help = requestSignatureHelp(context.file, context.editor.document, context.offset) ?: return null
-        val signatures = help.signatures.orEmpty()
-        if (signatures.isEmpty()) return null
+        val help = requestSignatureHelp(context.file, context.editor.document, context.offset)
+        val signatures = help?.signatures.orEmpty()
+        if (help == null || signatures.isEmpty()) return null
         context.itemsToShow = signatures.toTypedArray()
         return context.file.findElementAt(context.offset) ?: context.file
     }
