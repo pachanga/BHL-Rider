@@ -10,7 +10,16 @@ import com.intellij.util.messages.Topic
 import com.intellij.util.xmlb.XmlSerializerUtil
 
 class BhlSettingsState {
+    // Off by default: without it, the server is launched as bare "bhl" (resolved on PATH) or
+    // the last-downloaded release (see downloadedBinaryPath) — executablePath/forceRebuild are
+    // ignored even if still set from a previous session.
+    var useCustomInstallation: Boolean = false
     var executablePath: String = ""
+    // Set immediately on a successful "Download" in Settings (not gated behind Apply/OK, since
+    // the binary is already on disk by then regardless of what the user does with the dialog).
+    // Ignored when useCustomInstallation is on.
+    var downloadedReleaseTag: String = ""
+    var downloadedBinaryPath: String = ""
     var logFile: String = ""
     // Off by default: BHL_REBUILD makes the launcher run dotnet clean+publish before the
     // LSP starts, which can exceed the IDE's init timeout. Enable only for LSP development.
@@ -33,10 +42,28 @@ class BhlSettings : PersistentStateComponent<BhlSettingsState> {
         XmlSerializerUtil.copyBean(state, this.state)
     }
 
+    var useCustomInstallation: Boolean
+        get() = state.useCustomInstallation
+        set(value) {
+            state.useCustomInstallation = value
+        }
+
     var executablePath: String
         get() = state.executablePath
         set(value) {
             state.executablePath = value
+        }
+
+    var downloadedReleaseTag: String
+        get() = state.downloadedReleaseTag
+        set(value) {
+            state.downloadedReleaseTag = value
+        }
+
+    var downloadedBinaryPath: String
+        get() = state.downloadedBinaryPath
+        set(value) {
+            state.downloadedBinaryPath = value
         }
 
     var logFile: String

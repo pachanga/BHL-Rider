@@ -162,7 +162,15 @@ open class BhlLspServerDescriptor private constructor(
 
     override fun createCommandLine(): GeneralCommandLine {
         val settings = BhlSettings.getInstance(project)
-        val executablePath = settings.executablePath.ifBlank { "bhl" }
+        // executablePath/forceRebuild are ignored — not just hidden — when "use custom BHL
+        // installation path" is off, so toggling it off reliably falls back to the downloaded
+        // release (or bare "bhl" on PATH) even if a custom path is still saved from a previous
+        // session.
+        val executablePath = when {
+            settings.useCustomInstallation -> settings.executablePath.ifBlank { "bhl" }
+            settings.downloadedBinaryPath.isNotBlank() -> settings.downloadedBinaryPath
+            else -> "bhl"
+        }
 
         // Java can't exec a .bat file directly; mirror the VSCode client's `shell: true`
         // fallback by routing it through cmd.exe on Windows.
@@ -183,7 +191,7 @@ open class BhlLspServerDescriptor private constructor(
         commandLine.withWorkDirectory(workDir.toFile())
         commandLine.withCharset(StandardCharsets.UTF_8)
 
-        if (settings.forceRebuild) {
+        if (settings.useCustomInstallation && settings.forceRebuild) {
             commandLine.withEnvironment(mapOf("BHL_REBUILD" to "1", "BHL_SILENT" to "1"))
         }
 
