@@ -108,7 +108,10 @@ open class BhlLspServerDescriptor private constructor(
         // one project's interpretation instead of an unpredictable mix of both.
         val owners = BhlResolvedProjectsCache.getInstance(project).findAllOwning(file)
         return if (owners.size > 1) {
-            BhlSharedFileOwnershipService.getInstance(project).currentOwner(file) == workDir
+            // resolveOwner (not currentOwner) so this can't race BhlSharedFileWidget/the
+            // selection listener into finding no owner chosen yet and having nothing claim the
+            // file — it silently settles on the same default they would.
+            BhlSharedFileOwnershipService.getInstance(project).resolveOwner(file, owners) == workDir
         } else {
             true
         }

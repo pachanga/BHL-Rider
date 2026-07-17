@@ -2,20 +2,17 @@ package com.bitdotgames.bhl.rider.lsp
 
 import com.bitdotgames.bhl.rider.BhlFileType
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.Alarm
 import java.nio.file.Path
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
-import javax.swing.JLabel
 
 /**
  * Which `bhl.proj` currently "owns" a file that sits in a directory shared between more than
@@ -23,6 +20,8 @@ import javax.swing.JLabel
  * with different compile-time constants) — [BhlLspServerDescriptor.isSupportedFile] only lets
  * the chosen owner's server claim the file, so its diagnostics/highlighting/hover reflect one
  * project's interpretation at a time instead of an arbitrary, unpredictable mix of both.
+ *
+ * No longer prompts on open — see [BhlSharedFileWidget] for the on-demand switcher.
  */
 @Service(Service.Level.PROJECT)
 class BhlSharedFileOwnershipService {
@@ -30,12 +29,34 @@ class BhlSharedFileOwnershipService {
     private val suppressNextPrompt: MutableSet<VirtualFile> = Collections.newSetFromMap(ConcurrentHashMap())
     private val reconnectedOnce: MutableSet<VirtualFile> = Collections.newSetFromMap(ConcurrentHashMap())
 
+    @Volatile
+    private var lastActiveProject: Path? = null
+
     fun currentOwner(file: VirtualFile): Path? = chosenOwner[file]
 
     /** Records the user's choice; returns `true` if it actually changed the previous owner. */
     fun setOwner(file: VirtualFile, workDir: Path): Boolean {
         val previous = chosenOwner.put(file, workDir)
         return previous != workDir
+    }
+
+    /** Tracks which project you're likely working in, from focusing an unambiguous BHL file. */
+    fun recordActiveProject(workDir: Path) {
+        lastActiveProject = workDir
+    }
+
+    /**
+     * The owner to use for [file] without asking: its previously chosen owner if that's still
+     * one of [candidates]; otherwise the project you were last working in, if it's a candidate;
+     * otherwise just the first candidate. Persists whatever it picks, so this is stable across
+     * refocusing the same file (until explicitly changed via [BhlSharedFileWidget]) and so
+     * [currentOwner] (used by `isSupportedFile`) agrees with what got displayed/used.
+     */
+    fun resolveOwner(file: VirtualFile, candidates: List<Path>): Path {
+        chosenOwner[file]?.let { if (it in candidates) return it }
+        val resolved = lastActiveProject?.takeIf { it in candidates } ?: candidates.first()
+        chosenOwner[file] = resolved
+        return resolved
     }
 
     /** Marks [file]'s next tab-selection event as caused by our own reconnect, not the user. */
@@ -53,9 +74,10 @@ class BhlSharedFileOwnershipService {
 }
 
 /**
- * Prompts on every focus switch into a shared-directory file (not just its first open) since
- * the whole point of switching which project owns it is to compare Client vs Server behavior
- * for the same shared script within one session.
+ * Silently resolves shared-file ownership on open/focus (see [BhlSharedFileOwnershipService
+ * .resolveOwner]) instead of prompting — switching which project owns a shared file is now done
+ * on demand via [BhlSharedFileWidget] in the status bar, so you're never blocked from just
+ * looking at a file while it's already open.
  */
 fun installBhlSharedFileSelectionListener(project: Project, disposable: Disposable) {
     val reconnectAlarm = Alarm(disposable)
@@ -71,19 +93,9 @@ fun installBhlSharedFileSelectionListener(project: Project, disposable: Disposab
 
                 val cache = BhlResolvedProjectsCache.getInstance(project)
                 val candidates = cache.findAllOwning(file)
-
-                if (candidates.size > 1) {
-                    ApplicationManager.getApplication().invokeLater {
-                        promptForOwningProject(project, file, candidates) { chosen ->
-                            if (ownership.setOwner(file, chosen)) {
-                                ownership.suppressNextPromptFor(file)
-                                val fem = FileEditorManager.getInstance(project)
-                                fem.closeFile(file)
-                                fem.openFile(file, true)
-                            }
-                        }
-                    }
-                    return
+                when {
+                    candidates.size == 1 -> ownership.recordActiveProject(candidates[0])
+                    candidates.size > 1 -> ownership.resolveOwner(file, candidates)
                 }
 
                 // Works around a startup race: BhlContentRoots.ensureBhlContentRoots registers
@@ -95,27 +107,19 @@ fun installBhlSharedFileSelectionListener(project: Project, disposable: Disposab
                 // never gets a didOpen. One retry, once the registration's had time to land,
                 // works around it; markReconnectedOnce ensures this only ever fires once.
                 if (cache.isSecondaryRoot(file) && ownership.markReconnectedOnce(file)) {
-                    reconnectAlarm.addRequest(
-                        {
-                            ownership.suppressNextPromptFor(file)
-                            val fem = FileEditorManager.getInstance(project)
-                            fem.closeFile(file)
-                            fem.openFile(file, true)
-                        },
-                        500,
-                    )
+                    reconnectAlarm.addRequest({ reconnectBhlFile(project, file, ownership) }, 500)
                 }
             }
         },
     )
 }
 
-private fun promptForOwningProject(project: Project, file: VirtualFile, candidates: List<Path>, onChosen: (Path) -> Unit) {
-    JBPopupFactory.getInstance()
-        .createPopupChooserBuilder(candidates)
-        .setTitle("${file.name} is shared — view it as part of:")
-        .setRenderer { _, value, _, _, _ -> JLabel(value.fileName?.toString() ?: value.toString()) }
-        .setItemChosenCallback(onChosen)
-        .createPopup()
-        .showCenteredInCurrentWindow(project)
+/** Force-closes then reopens [file], the only reliable way found so far to make the platform's
+ * LSP file-routing rescan a file it already considered open under the previous owner. Used both
+ * by the startup race workaround above and by [BhlSharedFileWidget] when switching owners. */
+fun reconnectBhlFile(project: Project, file: VirtualFile, ownership: BhlSharedFileOwnershipService) {
+    ownership.suppressNextPromptFor(file)
+    val fem = FileEditorManager.getInstance(project)
+    fem.closeFile(file)
+    fem.openFile(file, true)
 }

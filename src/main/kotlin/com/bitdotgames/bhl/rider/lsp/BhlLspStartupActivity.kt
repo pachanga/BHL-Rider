@@ -1,5 +1,7 @@
 package com.bitdotgames.bhl.rider.lsp
 
+import com.bitdotgames.bhl.rider.settings.BhlSettings
+import com.bitdotgames.bhl.rider.settings.BhlSettingsChangeListener
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
@@ -21,6 +23,21 @@ class BhlLspStartupActivity : ProjectActivity {
         BhlPlatformLspLogBridge.install(project, console)
         installBhlDocumentListener(project, console)
         installBhlSharedFileSelectionListener(project, console)
+
+        // SETTINGS_CHANGED_TOPIC was being published (from Settings apply() and immediately on
+        // a successful binary download) but had no subscriber anywhere — so executablePath,
+        // forceRebuild, useCustomInstallation and the downloaded binary path all silently had
+        // no effect on an already-running server until the whole IDE was restarted. Restart via
+        // the same stopAndRestartIfNeeded already used by SelectBhlProjectFileAction.
+        project.messageBus.connect(console).subscribe(
+            BhlSettings.SETTINGS_CHANGED_TOPIC,
+            object : BhlSettingsChangeListener {
+                override fun settingsChanged() {
+                    console.logInfo("settings changed — restarting BHL server if running", reveal = false)
+                    LspServerManager.getInstance(project).stopAndRestartIfNeeded(BhlLspServerSupportProvider::class.java)
+                }
+            },
+        )
 
         // Eagerly learn about every bhl.proj in the project (not just the ones a file has been
         // opened under yet) so shared-directory ambiguity between them can be detected from

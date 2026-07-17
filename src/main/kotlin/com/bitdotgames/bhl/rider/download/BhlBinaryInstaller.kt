@@ -76,6 +76,12 @@ object BhlBinaryInstaller {
         val asset = findAsset(release, platformSuffix)
             ?: error("Release ${release.tagName} has no binary for $platformSuffix")
 
+        // Only one release is ever "the" installed one at a time (see BhlSettings
+        // .downloadedReleaseTag) — remove every other cached release now that we know this one
+        // is actually installable, so switching versions doesn't quietly accumulate every
+        // version ever tried.
+        cleanupOtherInstalls(keepTagName = release.tagName)
+
         val installDir = installDirFor(release.tagName, platformSuffix)
         val binaryPath = installDir.resolve(if (platformSuffix.startsWith("win")) "bhl.exe" else "bhl")
         if (Files.isRegularFile(binaryPath)) return binaryPath
@@ -131,8 +137,24 @@ object BhlBinaryInstaller {
         }
     }
 
+    private fun installsRoot(): Path = Path.of(PathManager.getSystemPath(), "bhl-rider")
+
     private fun installDirFor(tagName: String, platformSuffix: String): Path =
-        Path.of(PathManager.getSystemPath(), "bhl-rider", tagName, platformSuffix)
+        installsRoot().resolve(tagName).resolve(platformSuffix)
+
+    /** Deletes every cached release directory except [keepTagName]'s. Best-effort: a locked
+     * file (e.g. the old binary still running as a subprocess) shouldn't fail the new install. */
+    private fun cleanupOtherInstalls(keepTagName: String) {
+        val root = installsRoot()
+        if (!Files.isDirectory(root)) return
+        Files.newDirectoryStream(root).use { entries ->
+            for (entry in entries) {
+                if (entry.fileName.toString() != keepTagName) {
+                    runCatching { entry.toFile().deleteRecursively() }
+                }
+            }
+        }
+    }
 
     /** Every published archive contains exactly one file: the `bhl`/`bhl.exe` executable. */
     private fun extractSingleBinary(archivePath: Path, assetName: String, destination: Path) {

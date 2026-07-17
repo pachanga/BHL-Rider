@@ -38,6 +38,11 @@
 
         <postStartupActivity implementation="com.bitdotgames.bhl.rider.lsp.BhlLspStartupActivity"/>
 
+        <!-- Only visible for a BHL file shared between more than one project's src_dirs; lets
+             you switch which project's context it's viewed as without reopening/re-prompting. -->
+        <statusBarWidgetFactory id="BHLSharedFileContext"
+                                 implementation="com.bitdotgames.bhl.rider.lsp.BhlSharedFileWidgetFactory"/>
+
         <!-- Colors for BHL semantic-token keys; without these, types/variables/parameters
              map to attribute keys that stock IntelliJ schemes leave uncolored. -->
         <additionalTextAttributes scheme="Default" file="colorSchemes/BhlDefault.xml"/>
