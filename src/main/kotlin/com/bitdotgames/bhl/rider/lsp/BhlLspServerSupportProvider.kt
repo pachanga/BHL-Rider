@@ -107,14 +107,22 @@ open class BhlLspServerDescriptor private constructor(
         // BhlSharedFileOwnership.kt) gets to claim it, so its diagnostics/highlighting reflect
         // one project's interpretation instead of an unpredictable mix of both.
         val owners = BhlResolvedProjectsCache.getInstance(project).findAllOwning(file)
-        return if (owners.size > 1) {
+        val result = if (owners.size > 1) {
             // resolveOwner (not currentOwner) so this can't race BhlSharedFileWidget/the
             // selection listener into finding no owner chosen yet and having nothing claim the
             // file — it silently settles on the same default they would.
-            BhlSharedFileOwnershipService.getInstance(project).resolveOwner(file, owners) == workDir
+            val resolved = BhlSharedFileOwnershipService.getInstance(project).resolveOwner(file, owners)
+            if (owners.size > 1) {
+                BhlLspConsoleService.getInstance(project).logInfo(
+                    "isSupportedFile: workDir=$workDir file=${file.name} owners=$owners resolved=$resolved -> ${resolved == workDir}",
+                    reveal = false,
+                )
+            }
+            resolved == workDir
         } else {
             true
         }
+        return result
     }
 
     // Two descriptors for the same working directory are the same server, so starting from

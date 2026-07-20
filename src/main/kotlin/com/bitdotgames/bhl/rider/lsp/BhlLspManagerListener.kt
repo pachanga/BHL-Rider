@@ -30,6 +30,11 @@ class BhlLspManagerListener(private val project: Project) : LspServerManagerList
 
     override fun fileOpened(lspServer: LspServer, file: VirtualFile) {
         if (!isBhlServer(lspServer)) return
-        runCatching { console.logInfo("didOpen ${file.name}") }
+        runCatching { console.logInfo("didOpen ${file.name} on $lspServer") }
+    }
+
+    override fun diagnosticsReceived(lspServer: LspServer, file: VirtualFile) {
+        if (!isBhlServer(lspServer)) return
+        runCatching { console.logInfo("diagnostics from $lspServer for ${file.name}", reveal = false) }
     }
 }

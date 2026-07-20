@@ -35,6 +35,9 @@ dependencies {
 
         bundledPlugins(properties("platformBundledPlugins").map { it.split(',').filter(String::isNotBlank) })
         plugins(properties("platformPlugins").map { it.split(',').filter(String::isNotBlank) })
+
+        // DAP client support (com.intellij.platform.dap.*) for the BHL debugger.
+        bundledModule("intellij.platform.dap")
     }
 }
 

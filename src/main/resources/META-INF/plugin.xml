@@ -11,6 +11,15 @@
 
     <depends>com.intellij.modules.platform</depends>
 
+    <!-- Runtime module dependency for com.intellij.platform.dap.* (BHL debugger support). A
+         Gradle bundledModule() dependency only affects the compile classpath — without this
+         declaration the plugin classloader doesn't get the module's classes at runtime, and
+         loading any class that references them (e.g. BhlAttachRunConfiguration) throws
+         NoClassDefFoundError. -->
+    <dependencies>
+        <module name="intellij.platform.dap"/>
+    </dependencies>
+
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="BHL File"
                   implementationClass="com.bitdotgames.bhl.rider.BhlFileType"
@@ -60,6 +69,14 @@
              in .bhl files (which are plain-text PSI — see the parameter-info EP above). -->
         <spellchecker.bundledDictionaryProvider
                 implementation="com.bitdotgames.bhl.rider.BhlBundledDictionaryProvider"/>
+
+        <!-- DAP: attaches to an already-running `bhl.dap.BHLDebugServer` (embedded in the host
+             app, e.g. the Unity editor) over a plain TCP socket. Attach-only, mirrors BHL-VSCode's
+             debug.ts. -->
+        <platform.dap.debugAdapterSupportProvider
+                implementation="com.bitdotgames.bhl.rider.debug.BhlDebugAdapterSupportProvider"/>
+        <configurationType implementation="com.bitdotgames.bhl.rider.debug.BhlAttachConfigurationType"/>
+        <xdebugger.breakpointType implementation="com.bitdotgames.bhl.rider.debug.BhlLineBreakpointType"/>
     </extensions>
 
     <actions>
