@@ -31,7 +31,14 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        local(properties("platformLocalPath"))
+        // Prefer a locally installed Rider (fast, no ~1.5GB download) when it actually exists on
+        // disk — otherwise (e.g. on a CI runner) download the matching Rider distribution.
+        val localPath = properties("platformLocalPath").orNull
+        if (localPath != null && file(localPath).exists()) {
+            local(localPath)
+        } else {
+            create(properties("platformType"), properties("platformVersion"))
+        }
 
         bundledPlugins(properties("platformBundledPlugins").map { it.split(',').filter(String::isNotBlank) })
         plugins(properties("platformPlugins").map { it.split(',').filter(String::isNotBlank) })
