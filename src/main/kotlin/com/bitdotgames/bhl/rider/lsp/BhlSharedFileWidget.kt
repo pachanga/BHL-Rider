@@ -15,6 +15,7 @@ import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 import com.intellij.openapi.wm.impl.status.EditorBasedStatusBarPopup
+import com.intellij.platform.lsp.api.LspServerManager
 import java.nio.file.Path
 
 private const val WIDGET_ID = "BHLSharedFileContext"
@@ -29,10 +30,12 @@ class BhlSharedFileWidgetFactory : StatusBarWidgetFactory {
 }
 
 /**
- * Status bar widget shown only for a BHL file that's shared between more than one project's
- * `src_dirs` (see [BhlSharedFileOwnershipService]): displays which project's context it's
- * currently being viewed as, and lets you switch on demand — replacing the earlier design where
- * opening/focusing such a file forced a picker every time.
+ * Status bar widget shown for any BHL file whose owning project is known (see
+ * [BhlResolvedProjectsCache]): displays which project's context it's currently being viewed as,
+ * and — when the file sits in a directory shared between more than one project's `src_dirs` (see
+ * [BhlSharedFileOwnershipService]) — lets you switch on demand, replacing the earlier design
+ * where opening/focusing such a file forced a picker every time. Hidden only when no owning
+ * project is known at all (e.g. no `bhl.proj` found for this file).
  */
 class BhlSharedFileWidget(project: Project) : EditorBasedStatusBarPopup(project, false) {
     override fun ID(): String = WIDGET_ID
@@ -42,9 +45,14 @@ class BhlSharedFileWidget(project: Project) : EditorBasedStatusBarPopup(project,
     protected override fun getWidgetState(file: VirtualFile?): EditorBasedStatusBarPopup.WidgetState {
         if (file == null || file.fileType != BhlFileType) return WidgetState.HIDDEN
         val candidates = BhlResolvedProjectsCache.getInstance(project).findAllOwning(file)
-        if (candidates.size <= 1) return WidgetState.HIDDEN
+        if (candidates.isEmpty()) return WidgetState.HIDDEN
         val current = BhlSharedFileOwnershipService.getInstance(project).resolveOwner(file, candidates)
-        return WidgetState("Shared BHL file — click to view as a different project", current.displayName(), true)
+        val tooltip = if (candidates.size > 1) {
+            "Shared BHL file — click to view as a different project"
+        } else {
+            "BHL project: ${current.displayName()}"
+        }
+        return WidgetState(tooltip, "BHL: ${current.displayName()}", true)
     }
 
     override fun createPopup(context: DataContext): ListPopup {
@@ -60,7 +68,20 @@ class BhlSharedFileWidget(project: Project) : EditorBasedStatusBarPopup(project,
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
                     override fun actionPerformed(e: AnActionEvent) {
                         if (ownership.setOwner(file, candidate)) {
-                            reconnectBhlFile(project, file, ownership)
+                            // A plain close+reopen (reconnectBhlFile) is NOT enough here: the platform's
+                            // LspServerImpl permanently caches a per-file "unsupported" result the first
+                            // time isSupportedFile returns false for it (LspServerImpl.unsupportedFilePaths,
+                            // never evicted for that server instance's lifetime) — so the *other* project's
+                            // server, which returned false for this file before the switch, would keep
+                            // returning false forever no matter how many times the file is reopened. Only a
+                            // fresh server instance (i.e. an actual restart) clears that cache; the platform
+                            // then automatically re-routes currently-open files to the new instances.
+                            BhlLspConsoleService.getInstance(project).logInfo(
+                                "shared-file owner switched to ${candidate.displayName()} for ${file.name} — " +
+                                    "restarting BHL servers to clear the platform's per-file routing cache",
+                            )
+                            LspServerManager.getInstance(project)
+                                .stopAndRestartIfNeeded(BhlLspServerSupportProvider::class.java)
                         }
                         update()
                     }

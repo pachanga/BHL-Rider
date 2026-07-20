@@ -114,9 +114,10 @@ fun installBhlSharedFileSelectionListener(project: Project, disposable: Disposab
     )
 }
 
-/** Force-closes then reopens [file], the only reliable way found so far to make the platform's
- * LSP file-routing rescan a file it already considered open under the previous owner. Used both
- * by the startup race workaround above and by [BhlSharedFileWidget] when switching owners. */
+/** Force-closes then reopens [file] — works around the startup race above (content roots not
+ * registered yet when the file was first opened, so it never got routed to any server at all).
+ * NOT sufficient for switching an *already-connected* shared file's owner — see
+ * [BhlSharedFileWidget]'s owner-switch handler for why that needs a full server restart instead. */
 fun reconnectBhlFile(project: Project, file: VirtualFile, ownership: BhlSharedFileOwnershipService) {
     ownership.suppressNextPromptFor(file)
     val fem = FileEditorManager.getInstance(project)

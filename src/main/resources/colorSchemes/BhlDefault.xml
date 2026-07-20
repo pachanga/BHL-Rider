@@ -6,6 +6,11 @@
             <option name="FOREGROUND" value="267f99"/>
         </value>
     </option>
+    <option name="BHL_NAMESPACE">
+        <value>
+            <option name="FOREGROUND" value="af00db"/>
+        </value>
+    </option>
     <option name="BHL_FUNCTION">
         <value>
             <option name="FOREGROUND" value="795e26"/>

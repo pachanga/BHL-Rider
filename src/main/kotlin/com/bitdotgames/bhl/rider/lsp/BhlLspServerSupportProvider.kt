@@ -106,23 +106,20 @@ open class BhlLspServerDescriptor private constructor(
         // constants) — only the project the user picked for this file (see
         // BhlSharedFileOwnership.kt) gets to claim it, so its diagnostics/highlighting reflect
         // one project's interpretation instead of an unpredictable mix of both.
+        //
+        // Whichever server(s) this returns false for will permanently cache that verdict for this
+        // exact file path (LspServerImpl.unsupportedFilePaths, never evicted) — so switching the
+        // chosen owner later requires restarting the servers, not just re-evaluating this method.
+        // See BhlSharedFileWidget's owner-switch handler.
         val owners = BhlResolvedProjectsCache.getInstance(project).findAllOwning(file)
-        val result = if (owners.size > 1) {
+        if (owners.size > 1) {
             // resolveOwner (not currentOwner) so this can't race BhlSharedFileWidget/the
             // selection listener into finding no owner chosen yet and having nothing claim the
             // file — it silently settles on the same default they would.
             val resolved = BhlSharedFileOwnershipService.getInstance(project).resolveOwner(file, owners)
-            if (owners.size > 1) {
-                BhlLspConsoleService.getInstance(project).logInfo(
-                    "isSupportedFile: workDir=$workDir file=${file.name} owners=$owners resolved=$resolved -> ${resolved == workDir}",
-                    reveal = false,
-                )
-            }
-            resolved == workDir
-        } else {
-            true
+            return resolved == workDir
         }
-        return result
+        return true
     }
 
     // Two descriptors for the same working directory are the same server, so starting from
@@ -247,8 +244,8 @@ open class BhlLspServerDescriptor private constructor(
         )
 
     /**
-     * The platform's default mapping sends type/class/variable/parameter to attribute keys
-     * that stock IntelliJ schemes leave uncolored (unlike VSCode themes). Route them (and
+     * The platform's default mapping sends type/class/namespace/variable/parameter to attribute
+     * keys that stock IntelliJ schemes leave uncolored (unlike VSCode themes). Route them (and
      * function, plain on light schemes) to BHL keys with colors shipped per scheme; the
      * remaining types (keyword/string/number/property/operator) have good defaults.
      */
@@ -256,6 +253,7 @@ open class BhlLspServerDescriptor private constructor(
         override fun getTextAttributesKey(tokenType: String, modifiers: List<String>): TextAttributesKey? =
             when (tokenType) {
                 "type", "class" -> BhlTextAttributes.TYPE
+                "namespace" -> BhlTextAttributes.NAMESPACE
                 "function" -> BhlTextAttributes.FUNCTION
                 "variable" -> BhlTextAttributes.VARIABLE
                 "parameter" -> BhlTextAttributes.PARAMETER
